@@ -1,0 +1,251 @@
+// GameBoard class
+import { state } from './state.js';
+import { tileSize, menus } from './config.js';
+import { renderMenu, handleMenuKeydown } from './menus.js';
+
+export class GameBoard {
+    constructor(scene, gridWidth, gridHeight) {
+        this.scene = scene;
+        this.gridWidth = gridWidth;
+        this.gridHeight = gridHeight;
+        this.pieces = [];
+    }
+
+    toggleMenu(x, y, toggle, cat) {
+        console.log(x, y, "menu at");
+        console.log(toggle, this.menuGraphics, this.menuText);
+
+        if (toggle) {
+            let transferscene = this.scene;
+            // Check if this is a player piece (player1 or player2)
+            if (cat === "player1" || cat === "player2") {
+                const playerNum = cat === "player1" ? 1 : 2;
+                const menuTitle = `Player ${playerNum}`;
+
+                // Store which player is selected for bio lookup
+                state.selectedPlayerCat = cat;
+
+                renderMenu(false, "player", "root", menuTitle, this.scene, x, y, toggle);
+
+                // Remove any existing handler first
+                if (state.currentMenuHandler) {
+                    document.removeEventListener("keydown", state.currentMenuHandler);
+                }
+
+                // Create and store the new handler
+                state.currentMenuHandler = function(event) {
+                    handleMenuKeydown(event, menus["player"]["root"], transferscene);
+                };
+
+                console.log("adding keydown handlemenukeydown");
+                state.keymonitor = true;
+                state.spellsMode = false;
+                document.addEventListener("keydown", state.currentMenuHandler);
+            }
+        } else {
+            setTimeout(() => {
+                this.scene.cursorBlinkEvent.paused = false;
+                renderMenu(true);
+
+                console.log("removing keydown handlemenukeydown");
+                if (state.currentMenuHandler) {
+                    document.removeEventListener("keydown", state.currentMenuHandler);
+                    state.currentMenuHandler = null;
+                }
+            }, 50);
+        }
+    }
+
+    selectBox(x, y) {
+        const cursor = this.pieces.find(piece => piece.piece === "cursor");
+        const selectedBox = this.pieces.find(piece =>
+            piece.x === cursor.x && piece.y === cursor.y && piece.piece !== "cursor"
+        );
+        console.log("selectedBox", selectedBox);
+        if (selectedBox) {
+            this.toggleMenu(x, y, true, selectedBox.cat);
+            this.scene.cursorBlinkEvent.paused = true;
+        } else {
+            return false;
+        }
+    }
+
+    setupBoardDimensions(x, y) {
+        this.boardWidth = x;
+        this.boardHeight = y;
+    }
+
+    setupCursor() {
+        this.pieces.push({ piece: "cursor", x: 1, y: 1, cat: "cursor" });
+    }
+
+    reportCursor() {
+        const cursorpos = this.pieces.find(piece => piece.piece === "cursor");
+        if (cursorpos) {
+            return { x: cursorpos.x, y: cursorpos.y };
+        }
+        return false;
+    }
+
+    alterCursor(dimension, value) {
+        const cursorIndex = this.pieces.findIndex(piece => piece.piece === "cursor");
+        if (cursorIndex !== -1) {
+            if (dimension === "x") {
+                this.pieces[cursorIndex].x += value;
+            } else if (dimension === "y") {
+                this.pieces[cursorIndex].y += value;
+            }
+        }
+    }
+
+    addPiece(piece, x, y, cat) {
+        if (this.isValidPosition(x, y)) {
+            this.pieces.push({ piece: piece, x: x, y: y, cat: cat });
+            piece.sprite.x = x * tileSize + (tileSize / 2);
+            piece.sprite.y = y * tileSize + (tileSize / 2);
+            this.scene.add.existing(piece.sprite);
+        } else {
+            console.error("Invalid position for piece:", x, y);
+        }
+    }
+
+    isValidPosition(x, y) {
+        return x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight;
+    }
+
+    movePiece(piece, dx, dy) {
+        const pieceData = this.pieces.find(p => p.piece === piece);
+        if (!pieceData) return false;
+
+        const newX = pieceData.x + dx;
+        const newY = pieceData.y + dy;
+
+        // Check bounds
+        if (newX < 1 || newX > this.boardWidth || newY < 1 || newY > this.boardHeight) {
+            return false;
+        }
+
+        // Check if another piece occupies the target square
+        const occupied = this.pieces.find(p =>
+            p.x === newX && p.y === newY && p.piece !== "cursor" && p.piece !== piece
+        );
+        if (occupied) {
+            return false;
+        }
+
+        // Update piece position
+        pieceData.x = newX;
+        pieceData.y = newY;
+        piece.sprite.x = newX * tileSize + (tileSize / 2);
+        piece.sprite.y = newY * tileSize + (tileSize / 2);
+
+        // Notify piece of movement (for shield visual updates, etc.)
+        if (piece.onMove) {
+            piece.onMove();
+        }
+
+        return true;
+    }
+
+    getSelectedPiece() {
+        const cursor = this.pieces.find(piece => piece.piece === "cursor");
+        return this.pieces.find(piece =>
+            piece.x === cursor.x && piece.y === cursor.y && piece.piece !== "cursor"
+        );
+    }
+
+    // Check for obstacles (ice walls) in the path between two points
+    // Returns the first obstacle found, or null if path is clear
+    getObstacleInPath(fromX, fromY, toX, toY) {
+        // Use Bresenham-like line algorithm to check each cell along the path
+        const dx = Math.abs(toX - fromX);
+        const dy = Math.abs(toY - fromY);
+        const sx = fromX < toX ? 1 : -1;
+        const sy = fromY < toY ? 1 : -1;
+
+        let x = fromX;
+        let y = fromY;
+        let err = dx - dy;
+
+        while (true) {
+            // Don't check the starting position (caster's position)
+            if (x !== fromX || y !== fromY) {
+                // Don't check the final position (we want to hit the target)
+                if (x === toX && y === toY) {
+                    break;
+                }
+
+                // Check for ice wall at this position
+                const obstacle = this.pieces.find(p =>
+                    p.x === x && p.y === y && p.cat === "icewall"
+                );
+
+                if (obstacle) {
+                    return obstacle;
+                }
+            }
+
+            if (x === toX && y === toY) {
+                break;
+            }
+
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+
+        return null;
+    }
+
+    // Remove a piece from the board
+    removePiece(piece) {
+        const index = this.pieces.findIndex(p => p.piece === piece);
+        if (index !== -1) {
+            this.pieces.splice(index, 1);
+            return true;
+        }
+        return false;
+    }
+
+    // Find an adjacent enemy wizard
+    // Returns the enemy piece data if found, null otherwise
+    getAdjacentEnemy(pieceData) {
+        const { x, y, cat } = pieceData;
+
+        // Determine which player this piece belongs to and who the enemy is
+        let isPlayer1 = cat === "player1";
+        let isPlayer2 = cat === "player2";
+
+        if (!isPlayer1 && !isPlayer2) return null;
+
+        const enemyCat = isPlayer1 ? "player2" : "player1";
+
+        // Check all 8 adjacent squares
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                // Skip the center square (the piece itself)
+                if (dx === 0 && dy === 0) continue;
+
+                const adjX = x + dx;
+                const adjY = y + dy;
+
+                const adjacent = this.pieces.find(p =>
+                    p.x === adjX && p.y === adjY && p.cat === enemyCat
+                );
+
+                if (adjacent) {
+                    console.log(`Adjacent enemy found! ${cat} at (${x}, ${y}) is adjacent to ${enemyCat} at (${adjX}, ${adjY})`);
+                    return adjacent;
+                }
+            }
+        }
+
+        return null;
+    }
+}
