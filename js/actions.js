@@ -2,9 +2,10 @@
 // Consolidates spell casting and movement logic for both player and AI
 
 import { state, audio } from './state.js';
-import { tileSize, spellData } from './config.js';
+import { spellData } from './config.js';
 import { getMagicBolt } from './spells/bolt.js';
 import { getLightning } from './spells/lightning.js';
+import { getArrow } from './spells/arrow.js';
 import { playBolt } from './audiofx/bolt.js';
 import { playLightningSound } from './audiofx/lightning.js';
 import { playThud } from './audiofx/thud.js';
@@ -25,15 +26,15 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
     const spell = spellData[spellName];
 
     // Calculate pixel positions
-    const startPixel = gridToPixel(casterPos.x, casterPos.y, tileSize);
-    const endPixel = gridToPixel(targetPos.x, targetPos.y, tileSize);
+    const startPixel = gridToPixel(casterPos.x, casterPos.y, state.tileSize);
+    const endPixel = gridToPixel(targetPos.x, targetPos.y, state.tileSize);
 
     // Check for ice wall blocking the path
     const obstacle = gameBoard.getObstacleInPath(casterPos.x, casterPos.y, targetPos.x, targetPos.y);
 
     if (obstacle) {
         // Spell hits the ice wall instead
-        const wallPixel = gridToPixel(obstacle.x, obstacle.y, tileSize);
+        const wallPixel = gridToPixel(obstacle.x, obstacle.y, state.tileSize);
 
         console.log(`Spell blocked by Ice Wall at (${obstacle.x}, ${obstacle.y})`);
 
@@ -119,7 +120,17 @@ function fireSpellProjectile(spellName, startPixel, endPixel, onComplete) {
             playLightningSound();
             lightning.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, onComplete);
         }
-    } else {
+    } 
+    
+    if (spellName === "Mighty Arrow") {
+        const arrow = getArrow();
+        if (arrow) {
+            playBolt();
+            arrow.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, 0x66ff66, onComplete);
+        }
+    }
+
+    else {
         // Default to Magic Bolt
         const magicBolt = getMagicBolt();
         if (magicBolt) {
@@ -276,7 +287,7 @@ export function clearCursorTint(scene) {
  */
 export function moveCursorToGrid(scene, gridPos) {
     const gameBoard = scene.gameBoard;
-    const pixel = gridToPixel(gridPos.x, gridPos.y, tileSize);
+    const pixel = gridToPixel(gridPos.x, gridPos.y, state.tileSize);
 
     const cursorData = gameBoard.pieces.find(p => p.piece === "cursor");
     if (cursorData) {

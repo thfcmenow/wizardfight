@@ -1,6 +1,6 @@
 // Menu rendering and handling
 import { state, audio } from './state.js';
-import { tileSize, menus, spellData } from './config.js';
+import { menus, spellData } from './config.js';
 import { properCase } from './utils.js';
 import { endTurn } from './turn.js';
 import { playFMBell } from './audiofx/bell.js';
@@ -27,7 +27,7 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
 
     // Adjust position if menu would go off-screen
     if (x + menuWidth > screenWidth) {
-        x = x - menuWidth - tileSize;
+        x = x - menuWidth - state.tileSize;
     }
     if (y + menuHeight > screenHeight) {
         y = y - menuHeight;
@@ -249,10 +249,40 @@ export function handleMenuKeydown(event, menu, scene) {
         }
     }
 
-    if (event && event.key === "4" && state.keymonitor) {
+     if (event && event.key === "4" && state.keymonitor) {
+        if (menu[parseInt(event.key) - 1]) {
+            // Check if we're in spells menu and Mighty Arrow
+            if (state.lastMenu === "spells" && state.spellsMode) {
+                const selectedSpell = menus["player"]["spells"][3]; // Mighty Arrow
+
+                // Check if spell already used
+                if (!canCastSpell(scene, selectedSpell)) {
+                    audio.error.play();
+                    console.log(`${selectedSpell} already used!`);
+                    return;
+                }
+
+                renderMenu(true); // Close menu
+                state.spellsMode = false;
+                enterTargetingMode(scene, selectedSpell);
+                return;
+            }
+
+            renderMenu(true);
+            // Enter movement mode
+            state.movementMode = true;
+            state.selectedPiece = scene.gameBoard.getSelectedPiece();
+            state.isSelected = false;
+            state.keymonitor = false;
+            scene.cursorBlinkEvent.paused = false;
+            console.log("Movement mode activated for:", state.selectedPiece);
+        }
+    }
+
+    if (event && event.key === "5" && state.keymonitor) {
         // Check if we're in spells menu and selecting Ice Wall
         if (state.lastMenu === "spells" && state.spellsMode) {
-            const selectedSpell = menus["player"]["spells"][3]; // Ice Wall
+            const selectedSpell = menus["player"]["spells"][5]; // Ice Wall
 
             // Check if spell already used
             if (!canCastSpell(scene, selectedSpell)) {

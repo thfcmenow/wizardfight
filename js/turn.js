@@ -1,6 +1,5 @@
 // Turn management functions
 import { state } from './state.js';
-import { tileSize } from './config.js';
 import { executeAITurn } from './ai.js';
 import { audio } from './state.js';
 
@@ -75,8 +74,8 @@ export function moveCursorToCurrentPlayer() {
         }
 
         // Update visual cursor position
-        state.gameScene.cursor.x = playerPiece.x * tileSize + (tileSize / 2);
-        state.gameScene.cursor.y = playerPiece.y * tileSize + (tileSize / 2);
+        state.gameScene.cursor.x = state.gridToPixelX(playerPiece.x);
+        state.gameScene.cursor.y = state.gridToPixelY(playerPiece.y);
     }
 }
 

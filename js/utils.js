@@ -1,5 +1,7 @@
 // Utility functions
 
+import { state } from './state.js';
+
 export function properCase(str) {
     return str.replace(
         /\w\S*/g,
@@ -15,7 +17,7 @@ export function chebyshevDistance(x1, y1, x2, y2) {
 // Convert grid coordinates to pixel coordinates
 export function gridToPixel(gridX, gridY, tileSize) {
     return {
-        x: gridX * tileSize + (tileSize / 2),
-        y: gridY * tileSize + (tileSize / 2)
+        x: state.offsetX + (gridX - 1) * tileSize + (tileSize / 2),
+        y: state.offsetY + (gridY - 1) * tileSize + (tileSize / 2)
     };
 }

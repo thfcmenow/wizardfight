@@ -1,5 +1,5 @@
 // Main game file
-import { gridWidth, gridHeight, tileSize, cursorScale } from './config.js';
+import { gridWidth, gridHeight, minTileSize, maxTileSize, cursorScale } from './config.js';
 import { state, audio } from './state.js';
 import { showTurnDialog } from './turn.js';
 import { endTurn } from './turn.js';
@@ -7,6 +7,7 @@ import { Wizard } from './Wizard.js';
 import { GameBoard } from './GameBoard.js';
 import { initMagicBolt } from './spells/bolt.js';
 import { initLightning } from './spells/lightning.js';
+import { initArrow } from './spells/arrow.js';
 import { castOffensiveSpell, createIceWall, executeMove } from './actions.js';
 
 // Exit targeting mode and restore cursor
@@ -25,12 +26,16 @@ function exitTargetingMode(scene) {
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,
+    width: 800, // Becomes the "base" resolution
     height: 600,
-    backgroundColor: 'white',
+    // backgroundColor is removed as transparent: true handles it
     scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        mode: Phaser.Scale.RESIZE, 
+        // autoCenter is removed as it's redundant with RESIZE
+    },
+    render: {
+        transparent: true,
+        pixelArt: false // Add this as true if you're doing retro styles!
     },
     scene: {
         preload: preload,
@@ -40,7 +45,7 @@ const config = {
 };
 
 function preload() {
-    this.load.image('tile', './assets/tile.png');
+    this.load.image('tile', './assets/tile.jpg');
     this.load.spritesheet('white_wizard', './assets/white_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
     this.load.spritesheet('cartoon_wizard', './assets/cartoon_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
     this.load.image('cursor', './assets/cursor2.png');
@@ -53,6 +58,16 @@ function preload() {
 
 function create() {
     state.gameScene = this;
+
+    // Calculate dynamic tile size to fit fixed 15x10 grid
+    const marginX = 100;  // Total margin left/right
+    const marginY = 100;  // Total margin top/bottom
+    const availableWidth = this.sys.game.canvas.width - marginX;
+    const availableHeight = this.sys.game.canvas.height - marginY;
+    const maxTileWidth = Math.floor(availableWidth / gridWidth);
+    const maxTileHeight = Math.floor(availableHeight / gridHeight);
+    const calculatedTileSize = Math.min(maxTileWidth, maxTileHeight);
+    state.tileSize = Math.max(Math.min(calculatedTileSize, maxTileSize), minTileSize);
 
     // Reset game state for new game
     state.currentPlayer = 1;
@@ -72,17 +87,33 @@ function create() {
     audio.menuclick = this.sound.add("menuclick", { loop: false });
     audio.error = this.sound.add("error", { loop: false });
     audio.gamemusic = this.sound.add("gamemusic", { loop: true });
-    audio.gamemusic.play();
-    audio.gamemusic.setVolume(0.7);
+    audio.gamemusic.setVolume(0.4);
+    audio.gamemusic.play();    
     audio.actionmusic = this.sound.add("actionmusic", { loop: true });
-    audio.actionmusic.setVolume(0.8);
+    audio.actionmusic.setVolume(0.4);
 
-    // Setup cursor
+    // Calculate centering offsets so the grid is centered on screen
+    // Grid pixel formula: offset + (gridPos - 1) * tileSize + tileSize / 2
+    // Grid spans exactly gridWidth * tileSize pixels wide, gridHeight * tileSize tall
+    const canvasWidth = this.sys.game.canvas.width;
+    const canvasHeight = this.sys.game.canvas.height;
+    const gridPixelWidth = gridWidth * state.tileSize;
+    const gridPixelHeight = gridHeight * state.tileSize;
+    state.offsetX = Math.floor((canvasWidth - gridPixelWidth) / 2);
+    state.offsetY = Math.floor((canvasHeight - gridPixelHeight) / 2);
+
+    // Helper: convert grid position (1-indexed) to pixel center
+    // Store on state so other modules can use it
+    state.gridToPixelX = (gx) => state.offsetX + (gx - 1) * state.tileSize + (state.tileSize / 2);
+    state.gridToPixelY = (gy) => state.offsetY + (gy - 1) * state.tileSize + (state.tileSize / 2);
+
+    // Setup cursor at grid position (1, 1)
     this.cursor = this.add.image(0, 0, 'cursor');
+    this.cursor.setOrigin(0.5, 0.5);
     this.cursor.setScale(cursorScale);
     this.cursor.setDepth(4);
-    this.cursor.x = tileSize + (tileSize / 2);
-    this.cursor.y = tileSize + (tileSize / 2);
+    this.cursor.x = state.gridToPixelX(1);
+    this.cursor.y = state.gridToPixelY(1);
 
     this.cursorBlinkEvent = this.time.addEvent({
         delay: 500,
@@ -94,22 +125,16 @@ function create() {
     });
     this.cursorBlinkEvent.paused = false;
 
-    // Calculate grid dimensions
-    const startX = 0;
-    const startY = 0;
-    const widthMax = (this.sys.game.canvas.width / tileSize).toFixed(0);
-    const heightMax = (this.sys.game.canvas.height / tileSize).toFixed(0);
-
-    // Create the grid
-    for (let y = 1; y < heightMax - 1; y++) {
-        for (let x = 1; x < widthMax - 1; x++) {
+    // Create the grid tiles (fixed 15x10 with dynamic tile size), centered on screen
+    for (let y = 1; y <= gridHeight; y++) {
+        for (let x = 1; x <= gridWidth; x++) {
             const tile = this.add.image(
-                startX + (x * tileSize) + (tileSize / 2),
-                startY + (y * tileSize) + (tileSize / 2),
+                state.gridToPixelX(x),
+                state.gridToPixelY(y),
                 'tile'
             );
             tile.setDepth(2);
-            tile.setDisplaySize(tileSize, tileSize);
+            tile.setDisplaySize(state.tileSize, state.tileSize);
 
             state.bx = x;
             state.by = y;
@@ -133,6 +158,7 @@ function create() {
     // Initialize spell systems
     initMagicBolt(this);
     initLightning(this);
+    initArrow(this);
 
     // Show HP bubbles for both wizards at game start (staggered)
     this.time.delayedCall(500, () => {
@@ -201,8 +227,8 @@ async function update() {
             // Check bounds
             if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
                 if (distance <= state.targetingRange) {
-                    this.cursor.x += dx * tileSize;
-                    this.cursor.y += dy * tileSize;
+                    this.cursor.x += dx * state.tileSize;
+                    this.cursor.y += dy * state.tileSize;
                     this.gameBoard.alterCursor("x", dx);
                     this.gameBoard.alterCursor("y", dy);
                     audio.menuclick.play();
@@ -373,7 +399,7 @@ async function update() {
             audio.error.play();
             return false;
         }
-        this.cursor.x -= tileSize;
+        this.cursor.x -= state.tileSize;
         this.leftKeyDown = true;
         this.gameBoard.alterCursor("x", -1);
     } else if (cursors.left.isUp) {
@@ -386,7 +412,7 @@ async function update() {
             audio.error.play();
             return false;
         }
-        this.cursor.x += tileSize;
+        this.cursor.x += state.tileSize;
         this.rightKeyDown = true;
         this.gameBoard.alterCursor("x", 1);
     } else if (cursors.right.isUp) {
@@ -399,7 +425,7 @@ async function update() {
             audio.error.play();
             return false;
         }
-        this.cursor.y -= tileSize;
+        this.cursor.y -= state.tileSize;
         this.upKeyDown = true;
         this.gameBoard.alterCursor("y", -1);
     } else if (cursors.up.isUp) {
@@ -412,7 +438,7 @@ async function update() {
             audio.error.play();
             return false;
         }
-        this.cursor.y += tileSize;
+        this.cursor.y += state.tileSize;
         this.downKeyDown = true;
         this.gameBoard.alterCursor("y", 1);
     } else if (cursors.down.isUp) {
@@ -442,9 +468,9 @@ async function update() {
         this.spaceKeyDown = false;
     }
 
-    // Keep cursor within bounds
-    this.cursor.x = Phaser.Math.Clamp(this.cursor.x, 0, (gridWidth - 1) * tileSize);
-    this.cursor.y = Phaser.Math.Clamp(this.cursor.y, 0, (gridHeight - 1) * tileSize);
+   // Keep cursor within bounds (1-indexed, centered grid)
+    this.cursor.x = Phaser.Math.Clamp(this.cursor.x, state.gridToPixelX(1), state.gridToPixelX(gridWidth));
+    this.cursor.y = Phaser.Math.Clamp(this.cursor.y, state.gridToPixelY(1), state.gridToPixelY(gridHeight));
 }
 
 console.log(config);

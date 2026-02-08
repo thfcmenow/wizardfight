@@ -1,6 +1,6 @@
 // GameBoard class
 import { state } from './state.js';
-import { tileSize, menus } from './config.js';
+import { menus } from './config.js';
 import { renderMenu, handleMenuKeydown } from './menus.js';
 
 export class GameBoard {
@@ -101,8 +101,8 @@ export class GameBoard {
     addPiece(piece, x, y, cat) {
         if (this.isValidPosition(x, y)) {
             this.pieces.push({ piece: piece, x: x, y: y, cat: cat });
-            piece.sprite.x = x * tileSize + (tileSize / 2);
-            piece.sprite.y = y * tileSize + (tileSize / 2);
+            piece.sprite.x = state.gridToPixelX(x);
+            piece.sprite.y = state.gridToPixelY(y);
             this.scene.add.existing(piece.sprite);
         } else {
             console.error("Invalid position for piece:", x, y);
@@ -110,7 +110,7 @@ export class GameBoard {
     }
 
     isValidPosition(x, y) {
-        return x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight;
+        return x >= 1 && x <= this.gridWidth && y >= 1 && y <= this.gridHeight;
     }
 
     movePiece(piece, dx, dy) {
@@ -136,8 +136,8 @@ export class GameBoard {
         // Update piece position
         pieceData.x = newX;
         pieceData.y = newY;
-        piece.sprite.x = newX * tileSize + (tileSize / 2);
-        piece.sprite.y = newY * tileSize + (tileSize / 2);
+        piece.sprite.x = state.gridToPixelX(newX);
+        piece.sprite.y = state.gridToPixelY(newY);
 
         // Notify piece of movement (for shield visual updates, etc.)
         if (piece.onMove) {

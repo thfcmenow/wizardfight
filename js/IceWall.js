@@ -1,5 +1,5 @@
 // IceWall class - obstacle with glint and shatter particles
-import { tileSize } from './config.js';
+import { state } from './state.js';
 
 export class IceWall {
     constructor(scene, gridX, gridY) {
@@ -7,8 +7,8 @@ export class IceWall {
         this.gridX = gridX;
         this.gridY = gridY;
 
-        const centerX = gridX * tileSize + (tileSize / 2);
-        const centerY = gridY * tileSize + (tileSize / 2);
+        const centerX = state.gridToPixelX(gridX);
+        const centerY = state.gridToPixelY(gridY);
         this.pos = { x: centerX, y: centerY };
 
         // 1. Setup Graphics Layers
@@ -19,7 +19,7 @@ export class IceWall {
         this.glint.setDepth(4);
 
         // Create the texture overlay
-        this.textureOverlay = scene.add.tileSprite(centerX, centerY, tileSize, tileSize, 'iceTexture');
+        this.textureOverlay = scene.add.tileSprite(centerX, centerY, state.tileSize, state.tileSize, 'iceTexture');
         this.textureOverlay.setAlpha(0.5); // 50% transparency
         this.textureOverlay.setDepth(3.1); // Just above the base graphics
         this.textureOverlay.setBlendMode(Phaser.BlendModes.ADD); // Optional: makes it "glow"
@@ -50,7 +50,7 @@ export class IceWall {
     }
 
     drawIceWall(centerX, centerY) {
-        const size = tileSize * 0.8;
+        const size = state.tileSize * 0.8;
         const halfSize = size / 2;
         const x = centerX - halfSize;
         const y = centerY - halfSize;
@@ -84,7 +84,7 @@ export class IceWall {
     }
 
     createGlintAnimation(centerX, centerY) {
-        const size = tileSize * 0.8;
+        const size = state.tileSize * 0.8;
         const x = centerX - (size / 2);
         const y = centerY - (size / 2);
 
