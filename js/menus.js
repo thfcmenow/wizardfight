@@ -164,6 +164,9 @@ function canCastSpell(scene, spellName) {
 }
 
 export function handleMenuKeydown(event, menu, scene) {
+    console.log("key:", event.key);
+    console.log("menu:",menu)
+    console.log("menus:",menus)
     if (event && event.key === "1" && state.keymonitor) {
         if (menu[parseInt(event.key) - 1]) {
             // Check if we're in spells menu and selecting a spell
@@ -250,11 +253,15 @@ export function handleMenuKeydown(event, menu, scene) {
     }
 
      if (event && event.key === "4" && state.keymonitor) {
+        console.log("1")
+        console.log((menu[parseInt(event.key) - 1]))
         if (menu[parseInt(event.key) - 1]) {
+            console.log("3")
             // Check if we're in spells menu and Mighty Arrow
             if (state.lastMenu === "spells" && state.spellsMode) {
+                console.log("2")
                 const selectedSpell = menus["player"]["spells"][3]; // Mighty Arrow
-
+                console.log("selectedSpell: ", selectedSpell);
                 // Check if spell already used
                 if (!canCastSpell(scene, selectedSpell)) {
                     audio.error.play();
@@ -268,21 +275,22 @@ export function handleMenuKeydown(event, menu, scene) {
                 return;
             }
 
-            renderMenu(true);
-            // Enter movement mode
-            state.movementMode = true;
-            state.selectedPiece = scene.gameBoard.getSelectedPiece();
-            state.isSelected = false;
-            state.keymonitor = false;
-            scene.cursorBlinkEvent.paused = false;
-            console.log("Movement mode activated for:", state.selectedPiece);
+            // Dead code - root menu only has 3 options, so this never executes
+            // renderMenu(true);
+            // // Enter movement mode
+            // state.movementMode = true;
+            // state.selectedPiece = scene.gameBoard.getSelectedPiece();
+            // state.isSelected = false;
+            // state.keymonitor = false;
+            // scene.cursorBlinkEvent.paused = false;
+            // console.log("Movement mode activated for:", state.selectedPiece);
         }
     }
 
     if (event && event.key === "5" && state.keymonitor) {
         // Check if we're in spells menu and selecting Ice Wall
         if (state.lastMenu === "spells" && state.spellsMode) {
-            const selectedSpell = menus["player"]["spells"][5]; // Ice Wall
+            const selectedSpell = menus["player"]["spells"][4]; // Ice Wall
 
             // Check if spell already used
             if (!canCastSpell(scene, selectedSpell)) {

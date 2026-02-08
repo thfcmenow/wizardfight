@@ -16,8 +16,8 @@ export const FONT_NAME = 'minecraft';
 export const spellData = {
     "Magic Bolt": { range: 5, minDamage: 1, maxDamage: 5 },
     "Lightning": { range: 3, minDamage: 3, maxDamage: 10 },
-    "Mighty Arrow": { range: 9, minDamage: 2, maxDamage: 5 },
     "Shield": { range: 0, shieldHp: 3, selfCast: true },
+    "Mighty Arrow": { range: 9, minDamage: 2, maxDamage: 5 },
     "Ice Wall": { range: 5, createObstacle: true }
 };
 
