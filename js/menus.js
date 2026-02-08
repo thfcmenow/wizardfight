@@ -2,7 +2,7 @@
 import { state, audio } from './state.js';
 import { menus, spellData, spells, getSpellByKey } from './config.js';
 import { properCase } from './utils.js';
-import { endTurn } from './turn.js';
+import { endTurn, checkTurnComplete } from './turn.js';
 import { playFMBell } from './audiofx/bell.js';
 
 // Container for menu instances
@@ -100,6 +100,9 @@ export function castSelfSpell(scene, spellName) {
     audio.menuclick.play();
     // playFMBell(0.3);
 
+    // Mark caster as acted
+    state.actedUnits.add(casterPiece.piece);
+
     // Clean up state
     state.isSelected = false;
     state.keymonitor = false;
@@ -107,9 +110,9 @@ export function castSelfSpell(scene, spellName) {
 
     console.log(`Cast ${spellName} on self`);
 
-    // End turn after brief delay
+    // Check if turn is complete after brief delay
     scene.time.delayedCall(1500, () => {
-        endTurn();
+        checkTurnComplete();
     });
 }
 
@@ -197,6 +200,42 @@ export function handleMenuKeydown(event, menu, scene) {
                 console.error(`Unknown spell type: ${spell.type}`);
             }
 
+            return;
+        }
+    }
+
+    // ========================================================================
+    // GOBLIN MENU - Move and Pass Turn options
+    // ========================================================================
+    if (state.lastMenu === "root" && menu === menus["goblin"]["root"]) {
+        if (keyPressed === "1") {
+            // Move goblin
+            renderMenu(true);
+            state.movementMode = true;
+            state.selectedPiece = scene.gameBoard.getSelectedPiece();
+            state.isSelected = false;
+            state.keymonitor = false;
+            scene.cursorBlinkEvent.paused = false;
+            console.log("Movement mode activated for goblin:", state.selectedPiece);
+            return;
+        }
+
+        if (keyPressed === "2") {
+            // Pass turn - mark goblin as acted
+            const selectedPiece = scene.gameBoard.getSelectedPiece();
+            if (selectedPiece) {
+                state.actedUnits.add(selectedPiece.piece);
+                console.log("Goblin passed turn");
+            }
+
+            renderMenu(true);
+            audio.menuclick.play();
+            state.isSelected = false;
+            state.keymonitor = false;
+            scene.cursorBlinkEvent.paused = false;
+
+            // Check if turn is complete
+            checkTurnComplete();
             return;
         }
     }

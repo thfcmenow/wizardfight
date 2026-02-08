@@ -2,13 +2,13 @@
 import { gridWidth, gridHeight, minTileSize, maxTileSize, cursorScale } from './config.js';
 import { state, audio } from './state.js';
 import { showTurnDialog } from './turn.js';
-import { endTurn } from './turn.js';
+import { endTurn, checkTurnComplete } from './turn.js';
 import { Wizard } from './Wizard.js';
 import { GameBoard } from './GameBoard.js';
 import { initMagicBolt } from './spells/bolt.js';
 import { initLightning } from './spells/lightning.js';
 import { initArrow } from './spells/arrow.js';
-import { castOffensiveSpell, createIceWall, executeMove } from './actions.js';
+import { castOffensiveSpell, createIceWall, summonUnit, executeMove } from './actions.js';
 
 // Exit targeting mode and restore cursor
 function exitTargetingMode(scene) {
@@ -54,6 +54,7 @@ function preload() {
     this.load.audio("gamemusic", ["./assets/prism.mp3"]);
     this.load.audio("actionmusic", ["./assets/action.mp3"]);
     this.load.image('iceTexture', ["./textures/ice.png"]);
+    this.load.spritesheet('goblin_sprite', './assets/goblin-face-right.png', { frameWidth: 100, frameHeight: 100 });
 }
 
 function create() {
@@ -274,9 +275,36 @@ async function update() {
                 // Handle Ice Wall separately (creates obstacle, no damage)
                 if (currentSpell === "Ice Wall") {
                     const success = createIceWall(scene, { x: targetX, y: targetY }, () => {
+                        // Mark caster as acted
+                        if (state.casterPiece) {
+                            state.actedUnits.add(state.casterPiece.piece);
+                        }
                         state.casterPiece = null;
                         state.targetingSpell = null;
-                        endTurn();
+                        checkTurnComplete();
+                    });
+
+                    if (!success) {
+                        // Unmark the spell since it failed
+                        if (state.casterPiece && state.casterPiece.piece.usedSpells) {
+                            state.casterPiece.piece.usedSpells.delete(currentSpell);
+                        }
+                        state.targetingMode = false;
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        return;
+                    }
+
+                    state.targetingMode = false;
+                    return;
+                }
+
+                // Handle Summon Goblin
+                if (currentSpell === "Summon Goblin") {
+                    const success = summonUnit(scene, { x: targetX, y: targetY }, "goblin", () => {
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        // Note: summonUnit already marks caster as acted and calls checkTurnComplete
                     });
 
                     if (!success) {
@@ -303,7 +331,7 @@ async function update() {
                     () => {
                         state.casterPiece = null;
                         state.targetingSpell = null;
-                        endTurn();
+                        // Note: castOffensiveSpell already marks caster as acted and calls checkTurnComplete
                     }
                 );
 

@@ -7,11 +7,52 @@ export function isCurrentPlayerPiece(cat) {
     return cat === `player${state.currentPlayer}`;
 }
 
+// Check if all units owned by current player have acted this turn
+// If yes, auto-advance to next turn
+export function checkTurnComplete() {
+    if (!state.gameScene || !state.gameScene.gameBoard) return;
+
+    const gameBoard = state.gameScene.gameBoard;
+
+    // Get all units owned by current player (exclude cursor, icewall, etc.)
+    const ownedUnits = gameBoard.pieces.filter(p => {
+        const owner = gameBoard.getPieceOwner(p);
+        return owner === state.currentPlayer;
+    });
+
+    console.log(`[checkTurnComplete] Player ${state.currentPlayer} has ${ownedUnits.length} units, ${state.actedUnits.size} have acted`);
+
+    // Check if all units have acted
+    const allActed = ownedUnits.every(unitData => state.actedUnits.has(unitData.piece));
+
+    if (allActed && ownedUnits.length > 0) {
+        console.log(`[checkTurnComplete] All units have acted, ending turn in 1 second`);
+        // Delay slightly to let animations complete
+        state.gameScene.time.delayedCall(1000, () => {
+            endTurn();
+        });
+    }
+}
+
 export function endTurn() {
     console.log(`[endTurn] Current player: ${state.currentPlayer}, Switching to player ${state.currentPlayer === 1 ? 2 : 1}`);
+
+    // Clear acted units for the new turn
+    state.actedUnits.clear();
+
     state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
     state.turnNumber++;
-    console.log(`[endTurn] Turn ${state.turnNumber} - Player ${state.currentPlayer}'s turn`);
+
+    // Count owned units for logging
+    if (state.gameScene && state.gameScene.gameBoard) {
+        const ownedUnits = state.gameScene.gameBoard.pieces.filter(p =>
+            state.gameScene.gameBoard.getPieceOwner(p) === state.currentPlayer
+        );
+        console.log(`[endTurn] Turn ${state.turnNumber} - Player ${state.currentPlayer}'s turn (${ownedUnits.length} units)`);
+    } else {
+        console.log(`[endTurn] Turn ${state.turnNumber} - Player ${state.currentPlayer}'s turn`);
+    }
+
     showTurnDialog();
 }
 

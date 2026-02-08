@@ -60,6 +60,14 @@ export const spells = [
         range: 5,
         createObstacle: true,
         color: 0x88ccff  // Light blue
+    },
+    {
+        name: "Summon Goblin",
+        menuKey: "6",
+        type: "utility",
+        range: 3,
+        summonUnit: "goblin",
+        color: 0x66cc66  // Green
     }
 ];
 
@@ -87,6 +95,9 @@ export const menus = {
     },
     "player2": {
         "bio": ["Mordecai the Dark", "Age: 340", "School: Necromancy", "Power: 6", "Defense: 7"]
+    },
+    "goblin": {
+        "root": ["Move", "Pass Turn"]
     }
 };
 

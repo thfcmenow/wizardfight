@@ -7,6 +7,7 @@ import {
     castOffensiveSpell,
     createIceWall,
     castShield,
+    summonUnit,
     executeMove,
     setCursorTintForSpell,
     clearCursorTint,
@@ -232,19 +233,19 @@ function getBestMoveDirection(fromX, fromY, toX, toY, gameBoard) {
 }
 
 // Execute AI move action using shared actions
-function doAIMove(aiWizard, move, gameBoard) {
-    const moved = executeMove(gameBoard, aiWizard, move.dx, move.dy, () => {
-        endTurn();
+function doAIMove(aiPiece, move, gameBoard, onComplete) {
+    const moved = executeMove(gameBoard, aiPiece, move.dx, move.dy, () => {
+        if (onComplete) onComplete();
     });
 
     if (!moved) {
         // Fallback if move failed
-        endTurn();
+        if (onComplete) onComplete();
     }
 }
 
 // Execute AI Ice Wall cast using shared actions
-function doAIIceWall(aiWizard, targetPos) {
+function doAIIceWall(aiWizard, targetPos, onComplete) {
     const scene = state.gameScene;
 
     console.log(`AI casting Ice Wall at (${targetPos.x}, ${targetPos.y})`);
@@ -254,12 +255,12 @@ function doAIIceWall(aiWizard, targetPos) {
 
     // Use shared createIceWall action
     createIceWall(scene, targetPos, () => {
-        endTurn();
+        if (onComplete) onComplete();
     });
 }
 
 // Execute AI Shield cast on self using shared actions
-function doAIShield(aiWizard) {
+function doAIShield(aiWizard, onComplete) {
     const scene = state.gameScene;
 
     console.log("AI casting Shield on self");
@@ -269,37 +270,114 @@ function doAIShield(aiWizard) {
 
     // Use shared castShield action
     castShield(scene, aiWizard.piece, () => {
-        endTurn();
+        if (onComplete) onComplete();
     });
 }
 
 // Execute AI offensive spell cast using shared actions
-function doAISpell(aiWizard, targetWizard, spellName) {
+function doAISpell(aiWizard, target, spellName, onComplete) {
     const scene = state.gameScene;
 
-    console.log(`AI casting ${spellName} at Player 1`);
+    console.log(`AI casting ${spellName} at (${target.x}, ${target.y})`);
 
     // Mark spell as used
     aiWizard.piece.markSpellUsed(spellName);
 
     // Visual feedback: tint cursor and move to target
     setCursorTintForSpell(scene, spellName);
-    moveCursorToGrid(scene, { x: targetWizard.x, y: targetWizard.y });
+    moveCursorToGrid(scene, { x: target.x, y: target.y });
 
     // Use shared castOffensiveSpell action
     castOffensiveSpell(
         scene,
         { x: aiWizard.x, y: aiWizard.y },
-        { x: targetWizard.x, y: targetWizard.y },
+        { x: target.x, y: target.y },
         spellName,
         () => {
             clearCursorTint(scene);
-            endTurn();
+            if (onComplete) onComplete();
         }
     );
 }
 
-// Main AI turn execution
+// Execute AI Summon Goblin cast
+function doAISummonGoblin(aiWizard, targetPos, onComplete) {
+    const scene = state.gameScene;
+
+    console.log(`AI summoning Goblin at (${targetPos.x}, ${targetPos.y})`);
+
+    // Mark spell as used
+    aiWizard.piece.markSpellUsed("Summon Goblin");
+
+    // Use shared summonUnit action
+    summonUnit(scene, targetPos, "goblin", () => {
+        if (onComplete) onComplete();
+    });
+}
+
+// Check if AI should summon a goblin
+function shouldSummonGoblin(aiWizard, playerWizard, gameBoard) {
+    // Check if spell exists and hasn't been used
+    const summonSpell = getSpellByName("Summon Goblin");
+    if (!summonSpell || aiWizard.piece.hasUsedSpell("Summon Goblin")) {
+        return null;
+    }
+
+    // Check if AI already has a goblin (max 1)
+    const existingGoblin = gameBoard.pieces.find(p =>
+        p.cat === "goblin" && gameBoard.getPieceOwner(p) === 2
+    );
+    if (existingGoblin) {
+        return null;
+    }
+
+    // Find valid spawn position adjacent to AI wizard
+    const adjacentPositions = [
+        { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+        { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+        { dx: -1, dy: -1 }, { dx: 1, dy: -1 },
+        { dx: -1, dy: 1 }, { dx: 1, dy: 1 }
+    ];
+
+    // Prefer positions closer to player
+    const candidates = adjacentPositions.map(offset => ({
+        x: aiWizard.x + offset.dx,
+        y: aiWizard.y + offset.dy
+    }));
+
+    // Sort by distance to player (closer is better)
+    candidates.sort((a, b) => {
+        const distA = chebyshevDistance(a.x, a.y, playerWizard.x, playerWizard.y);
+        const distB = chebyshevDistance(b.x, b.y, playerWizard.x, playerWizard.y);
+        return distA - distB;
+    });
+
+    for (const pos of candidates) {
+        // Check bounds
+        if (pos.x < 1 || pos.x > gameBoard.boardWidth ||
+            pos.y < 1 || pos.y > gameBoard.boardHeight) {
+            continue;
+        }
+
+        // Check if within summon range
+        const distFromAI = chebyshevDistance(aiWizard.x, aiWizard.y, pos.x, pos.y);
+        if (distFromAI > summonSpell.range) {
+            continue;
+        }
+
+        // Check if square is empty
+        const occupied = gameBoard.pieces.find(p =>
+            p.x === pos.x && p.y === pos.y && p.piece !== "cursor"
+        );
+        if (!occupied) {
+            return pos;
+        }
+    }
+
+    return null;
+}
+
+// Main AI turn execution - now supports multi-unit control
 export function executeAITurn() {
     if (!state.aiEnabled || state.currentPlayer !== 2) {
         return;
@@ -314,49 +392,166 @@ export function executeAITurn() {
         return;
     }
 
-    const distance = chebyshevDistance(
-        aiWizard.x, aiWizard.y,
-        playerWizard.x, playerWizard.y
+    // Get all AI-owned units (wizard + goblins)
+    const aiUnits = gameBoard.pieces.filter(p =>
+        gameBoard.getPieceOwner(p) === 2
     );
 
-    console.log(`AI thinking... Distance to player: ${distance}`);
+    console.log(`AI has ${aiUnits.length} units to act with`);
 
-    // Decide action after thinking delay
-    state.gameScene.time.delayedCall(AI_CONFIG.thinkingDelay, () => {
+    // Act with each unit sequentially (wizard first, then goblins)
+    let unitIndex = 0;
+
+    const actWithNextUnit = () => {
+        if (unitIndex >= aiUnits.length) {
+            // All units have acted - turn will auto-end via checkTurnComplete
+            console.log("AI finished acting with all units");
+            return;
+        }
+
+        const currentUnit = aiUnits[unitIndex];
+        unitIndex++;
+
+        console.log(`AI acting with unit ${unitIndex}/${aiUnits.length}: ${currentUnit.cat}`);
+
+        // Delay between units for clarity
+        state.gameScene.time.delayedCall(AI_CONFIG.actionDelay, () => {
+            actWithUnit(currentUnit, gameBoard, playerWizard, () => {
+                // Continue to next unit after brief delay
+                state.gameScene.time.delayedCall(AI_CONFIG.actionDelay, actWithNextUnit);
+            });
+        });
+    };
+
+    // Start acting with first unit after thinking delay
+    state.gameScene.time.delayedCall(AI_CONFIG.thinkingDelay, actWithNextUnit);
+}
+
+// Act with a single AI unit (wizard or goblin)
+function actWithUnit(unitData, gameBoard, playerWizard, onComplete) {
+    const isWizard = unitData.cat === "player2";
+    const isGoblin = unitData.cat === "goblin";
+
+    if (isWizard) {
+        // Wizard AI logic
+        const distance = chebyshevDistance(
+            unitData.x, unitData.y,
+            playerWizard.x, playerWizard.y
+        );
+
         // First, check if we should cast Shield
-        if (shouldCastShield(aiWizard, playerWizard, distance, gameBoard)) {
-            doAIShield(aiWizard);
+        if (shouldCastShield(unitData, playerWizard, distance, gameBoard)) {
+            doAIShield(unitData, onComplete);
+            return;
+        }
+
+        // Check if we should summon a goblin
+        const summonPos = shouldSummonGoblin(unitData, playerWizard, gameBoard);
+        if (summonPos) {
+            doAISummonGoblin(unitData, summonPos, onComplete);
             return;
         }
 
         // Check if we can cast an offensive spell
-        const bestSpell = chooseBestOffensiveSpell(distance, aiWizard, playerWizard, gameBoard);
+        const bestSpell = chooseBestOffensiveSpell(distance, unitData, playerWizard, gameBoard);
 
         if (bestSpell) {
             // Cast spell at player
-            doAISpell(aiWizard, playerWizard, bestSpell);
-        } else {
-            // No offensive spell available - consider Ice Wall
-            const iceWallPos = shouldCastIceWall(aiWizard, playerWizard, distance, gameBoard);
-            if (iceWallPos) {
-                doAIIceWall(aiWizard, iceWallPos);
-                return;
-            }
-
-            // Move toward player
-            const move = getBestMoveDirection(
-                aiWizard.x, aiWizard.y,
-                playerWizard.x, playerWizard.y,
-                gameBoard
-            );
-
-            if (move) {
-                doAIMove(aiWizard, move, gameBoard);
-            } else {
-                // No valid moves - just end turn
-                console.log("AI: No valid moves available");
-                endTurn();
-            }
+            doAISpell(unitData, playerWizard, bestSpell, onComplete);
+            return;
         }
-    });
+
+        // No offensive spell available - consider Ice Wall
+        const iceWallPos = shouldCastIceWall(unitData, playerWizard, distance, gameBoard);
+        if (iceWallPos) {
+            doAIIceWall(unitData, iceWallPos, onComplete);
+            return;
+        }
+
+        // Move toward player
+        const move = getBestMoveDirection(
+            unitData.x, unitData.y,
+            playerWizard.x, playerWizard.y,
+            gameBoard
+        );
+
+        if (move) {
+            doAIMove(unitData, move, gameBoard, onComplete);
+        } else {
+            // No valid moves
+            if (onComplete) onComplete();
+        }
+    } else if (isGoblin) {
+        // Goblin AI logic - simple: move toward enemy wizard
+        const distance = chebyshevDistance(
+            unitData.x, unitData.y,
+            playerWizard.x, playerWizard.y
+        );
+
+        console.log(`AI goblin acting... Distance to player: ${distance}`);
+
+        // Move toward player wizard
+        const move = getBestMoveDirection(
+            unitData.x, unitData.y,
+            playerWizard.x, playerWizard.y,
+            gameBoard
+        );
+
+        if (move) {
+            doAIMove(unitData, move, gameBoard, onComplete);
+        } else {
+            // No valid moves
+            if (onComplete) onComplete();
+        }
+    }
+}
+
+// Enhanced AI turn execution for multi-unit control
+export function executeAITurnMultiUnit() {
+    if (!state.aiEnabled || state.currentPlayer !== 2) {
+        return;
+    }
+
+    const gameBoard = state.gameScene.gameBoard;
+    const aiWizard = getWizardByPlayer(2);
+    const playerWizard = getWizardByPlayer(1);
+
+    if (!aiWizard || !playerWizard) {
+        console.error("AI: Could not find wizard pieces");
+        return;
+    }
+
+    // Get all AI-owned units (wizard + goblins)
+    const aiUnits = gameBoard.pieces.filter(p =>
+        gameBoard.getPieceOwner(p) === 2
+    );
+
+    console.log(`AI has ${aiUnits.length} units to act with`);
+
+    // Act with each unit sequentially (wizard first, then goblins)
+    let unitIndex = 0;
+
+    const actWithNextUnit = () => {
+        if (unitIndex >= aiUnits.length) {
+            // All units have acted - turn will auto-end via checkTurnComplete
+            console.log("AI finished acting with all units");
+            return;
+        }
+
+        const currentUnit = aiUnits[unitIndex];
+        unitIndex++;
+
+        console.log(`AI acting with unit ${unitIndex}/${aiUnits.length}: ${currentUnit.cat}`);
+
+        // Delay between units for clarity
+        state.gameScene.time.delayedCall(AI_CONFIG.actionDelay, () => {
+            actWithUnit(currentUnit, gameBoard, playerWizard, () => {
+                // Continue to next unit after brief delay
+                state.gameScene.time.delayedCall(AI_CONFIG.actionDelay, actWithNextUnit);
+            });
+        });
+    };
+
+    // Start acting with first unit after thinking delay
+    state.gameScene.time.delayedCall(AI_CONFIG.thinkingDelay, actWithNextUnit);
 }

@@ -26,7 +26,9 @@ export const state = {
     // Currently selected player for menu context
     selectedPlayerCat: null,
     // AI control for player 2
-    aiEnabled: true
+    aiEnabled: true,
+    // Track which units have acted this turn (for multi-unit control)
+    actedUnits: new Set()
 };
 
 // Audio references (set during create)

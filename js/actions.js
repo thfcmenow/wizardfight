@@ -10,8 +10,9 @@ import { playBolt } from './audiofx/bolt.js';
 import { playLightningSound } from './audiofx/lightning.js';
 import { playThud } from './audiofx/thud.js';
 import { IceWall } from './IceWall.js';
+import { Goblin } from './Goblin.js';
 import { gridToPixel } from './utils.js';
-import { showGameEndDialog, showAttackDialog } from './turn.js';
+import { showGameEndDialog, showAttackDialog, checkTurnComplete } from './turn.js';
 
 /**
  * Cast an offensive spell (Magic Bolt or Lightning)
@@ -83,11 +84,33 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
             if (isDead) {
                 console.log(`${targetPiece.cat} has been defeated!`);
 
-                // Determine winning player
+                playThud();
+
+                // Check if target is a goblin
+                if (targetPiece.cat === "goblin") {
+                    // Remove dead goblin from board
+                    gameBoard.removePiece(targetPiece.piece);
+                    console.log("Goblin removed from board");
+
+                    // Mark caster as acted
+                    const casterPiece = gameBoard.pieces.find(p =>
+                        p.x === casterPos.x && p.y === casterPos.y && p.piece !== "cursor"
+                    );
+                    if (casterPiece) {
+                        state.actedUnits.add(casterPiece.piece);
+                    }
+
+                    // Game continues - proceed with callback
+                    scene.time.delayedCall(3500, () => {
+                        checkTurnComplete();
+                        if (onComplete) onComplete();
+                    });
+                    return;
+                }
+
+                // Target is a wizard - game ends
                 const defeatedPlayerNum = targetPiece.cat === "player1" ? 1 : 2;
                 const winnerPlayerNum = defeatedPlayerNum === 1 ? 2 : 1;
-
-                playThud();
 
                 // Show game end dialog and restart
                 scene.time.delayedCall(3500, () => {
@@ -100,8 +123,17 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
 
         playThud();
 
+        // Mark caster as acted and check turn complete
+        const casterPiece = gameBoard.pieces.find(p =>
+            p.x === casterPos.x && p.y === casterPos.y && p.piece !== "cursor"
+        );
+        if (casterPiece) {
+            state.actedUnits.add(casterPiece.piece);
+        }
+
         // Call completion callback after delay to let HP bubbles display
         scene.time.delayedCall(3500, () => {
+            checkTurnComplete();
             if (onComplete) onComplete();
         });
     };
@@ -193,6 +225,103 @@ export function createIceWall(scene, targetPos, onComplete) {
 }
 
 /**
+ * Summon a unit at the target position
+ * @param {Phaser.Scene} scene - The game scene
+ * @param {Object} targetPos - {x, y} grid position for the summon
+ * @param {string} unitType - Type of unit to summon ("goblin")
+ * @param {Function} onComplete - Callback when summon completes
+ * @returns {boolean} - True if unit was summoned, false if blocked
+ */
+export function summonUnit(scene, targetPos, unitType, onComplete) {
+    const gameBoard = scene.gameBoard;
+
+    // Check summon limit - max 1 goblin per player
+    if (unitType === "goblin") {
+        const existingGoblins = gameBoard.pieces.filter(p =>
+            p.cat === "goblin" && gameBoard.getPieceOwner(p) === state.currentPlayer
+        );
+
+        if (existingGoblins.length >= 1) {
+            audio.error.play();
+            console.log("Already have maximum goblins (1)!");
+            return false;
+        }
+    }
+
+    // Check if target square is already occupied
+    const occupied = gameBoard.pieces.find(p =>
+        p.x === targetPos.x && p.y === targetPos.y && p.piece !== "cursor"
+    );
+
+    if (occupied) {
+        audio.error.play();
+        console.log("Can't summon on occupied square!");
+        return false;
+    }
+
+    // Create the unit
+    let summonedUnit;
+    if (unitType === "goblin") {
+        summonedUnit = new Goblin(scene, targetPos.x, targetPos.y);
+    } else {
+        console.error(`Unknown unit type: ${unitType}`);
+        return false;
+    }
+
+    // Add to game board with owner
+    gameBoard.addPiece(summonedUnit, targetPos.x, targetPos.y, unitType, state.currentPlayer);
+
+    console.log(`${unitType} summoned at (${targetPos.x}, ${targetPos.y}) for player ${state.currentPlayer}`);
+
+    // Create spawn visual effect
+    createSummonEffect(scene, targetPos.x, targetPos.y);
+
+    audio.menuclick.play();
+
+    // Mark caster as acted
+    if (state.casterPiece) {
+        state.actedUnits.add(state.casterPiece.piece);
+    }
+
+    // Call completion callback after brief delay
+    scene.time.delayedCall(800, () => {
+        checkTurnComplete();
+        if (onComplete) onComplete();
+    });
+
+    return true;
+}
+
+/**
+ * Create a visual effect for summoning
+ * @param {Phaser.Scene} scene - The game scene
+ * @param {number} gridX - Grid X position
+ * @param {number} gridY - Grid Y position
+ */
+function createSummonEffect(scene, gridX, gridY) {
+    const pixelPos = gridToPixel(gridX, gridY, state.tileSize);
+
+    // Create green particle emitter
+    const particles = scene.add.particles(pixelPos.x, pixelPos.y, 'cursor', {
+        speed: { min: 50, max: 150 },
+        scale: { start: 0.3, end: 0 },
+        blendMode: 'ADD',
+        lifespan: 600,
+        tint: 0x66cc66,
+        quantity: 20
+    });
+    particles.setDepth(12);
+
+    // Explode particles outward
+    particles.explode();
+
+    // Auto-destroy after particles fade
+    scene.time.delayedCall(700, () => {
+        particles.destroy();
+    });
+}
+
+/**
  * Cast Shield on a wizard
  * @param {Phaser.Scene} scene - The game scene
  * @param {Object} wizard - The wizard piece to shield
@@ -251,15 +380,25 @@ export function executeMove(gameBoard, pieceData, dx, dy, onComplete) {
                     adjacentEnemy,
                     // onYes - attack the enemy
                     () => {
-                        executeMeleeAttack(scene, adjacentEnemy, onComplete);
+                        executeMeleeAttack(scene, adjacentEnemy, () => {
+                            // Mark piece as acted after attack
+                            state.actedUnits.add(pieceData.piece);
+                            checkTurnComplete();
+                            if (onComplete) onComplete();
+                        });
                     },
                     // onNo - skip attack
                     () => {
+                        // Mark piece as acted even if skipping attack
+                        state.actedUnits.add(pieceData.piece);
+                        checkTurnComplete();
                         if (onComplete) onComplete();
                     }
                 );
             } else {
-                // No adjacent enemy, proceed normally
+                // No adjacent enemy, mark as acted and proceed
+                state.actedUnits.add(pieceData.piece);
+                checkTurnComplete();
                 if (onComplete) onComplete();
             }
         });
@@ -328,7 +467,20 @@ export function executeMeleeAttack(scene, defender, onComplete) {
         if (isDead) {
             console.log(`${defender.cat} has been defeated!`);
 
-            // Determine winning player
+            // Check if defender is a goblin
+            if (defender.cat === "goblin") {
+                // Remove dead goblin from board
+                scene.gameBoard.removePiece(defender.piece);
+                console.log("Goblin removed from board");
+
+                // Game continues - call completion callback
+                scene.time.delayedCall(3500, () => {
+                    if (onComplete) onComplete();
+                });
+                return;
+            }
+
+            // Defender is a wizard - game ends
             const defeatedPlayerNum = defender.cat === "player1" ? 1 : 2;
             const winnerPlayerNum = defeatedPlayerNum === 1 ? 2 : 1;
 
