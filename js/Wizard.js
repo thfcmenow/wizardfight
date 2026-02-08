@@ -1,5 +1,6 @@
 // Wizard class
 import { spriteScale } from './config.js';
+import { playShieldLoss } from './audiofx/shieldLoss.js';
 
 export class Wizard {
     constructor(scene, x, y, spriteKey, scale = spriteScale) {
@@ -120,6 +121,7 @@ export class Wizard {
 
             // Destroy shield visual if shield is gone
             if (this.shield <= 0) {
+                playShieldLoss()
                 this.destroyShieldVisual();
             } else {
                 this.updateShieldVisual();
