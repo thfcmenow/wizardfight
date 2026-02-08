@@ -2,7 +2,7 @@
 // Consolidates spell casting and movement logic for both player and AI
 
 import { state, audio } from './state.js';
-import { spellData } from './config.js';
+import { spellData, getSpellByName } from './config.js';
 import { getMagicBolt } from './spells/bolt.js';
 import { getLightning } from './spells/lightning.js';
 import { getArrow } from './spells/arrow.js';
@@ -112,30 +112,41 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
 
 /**
  * Fire a spell projectile (internal helper)
+ * Uses spell configuration from registry to determine visual effects and colors
  */
 function fireSpellProjectile(spellName, startPixel, endPixel, onComplete) {
+    const spell = getSpellByName(spellName);
+    const spellColor = spell?.color || 0xff0000; // Use spell color or default red
+
+    // Route to appropriate spell effect based on spell name
+    // TODO: Could be made more dynamic with a spell visual registry
     if (spellName === "Lightning") {
         const lightning = getLightning();
         if (lightning) {
             playLightningSound();
             lightning.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, onComplete);
         }
-    } 
-    
-    if (spellName === "Mighty Arrow") {
+    }
+    else if (spellName === "Mighty Arrow") {
         const arrow = getArrow();
         if (arrow) {
-            playBolt();
-            arrow.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, 0x66ff66, onComplete);
+            arrow.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, spellColor, onComplete);
         }
     }
-
-    else {
-        // Default to Magic Bolt
+    else if (spellName === "Magic Bolt") {
         const magicBolt = getMagicBolt();
         if (magicBolt) {
             playBolt();
-            magicBolt.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, 0xff6600, onComplete);
+            magicBolt.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, spellColor, onComplete);
+        }
+    }
+    else {
+        // Fallback for unknown spells - use Magic Bolt effect with spell's color
+        console.warn(`No visual effect registered for spell: ${spellName}, using Magic Bolt`);
+        const magicBolt = getMagicBolt();
+        if (magicBolt) {
+            playBolt();
+            magicBolt.fire(startPixel.x, startPixel.y, endPixel.x, endPixel.y, spellColor, onComplete);
         }
     }
 }
@@ -260,16 +271,14 @@ export function executeMove(gameBoard, pieceData, dx, dy, onComplete) {
 }
 
 /**
- * Set cursor tint based on spell type
+ * Set cursor tint based on spell color from registry
  * @param {Phaser.Scene} scene - The game scene
  * @param {string} spellName - Name of the spell
  */
 export function setCursorTintForSpell(scene, spellName) {
-    if (spellName === "Lightning") {
-        scene.cursor.setTint(0x4444ff);
-    } else {
-        scene.cursor.setTint(0xff4444);
-    }
+    const spell = getSpellByName(spellName);
+    const cursorTint = spell?.color || 0xff0000; // Use spell color or default red
+    scene.cursor.setTint(cursorTint);
 }
 
 /**

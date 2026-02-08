@@ -1,6 +1,6 @@
 // Menu rendering and handling
 import { state, audio } from './state.js';
-import { menus, spellData } from './config.js';
+import { menus, spellData, spells, getSpellByKey } from './config.js';
 import { properCase } from './utils.js';
 import { endTurn } from './turn.js';
 import { playFMBell } from './audiofx/bell.js';
@@ -80,7 +80,7 @@ export function castSelfSpell(scene, spellName) {
     }
 
     const spell = spellData[spellName];
-    if (!spell || !spell.selfCast) {
+    if (!spell || spell.type !== "selfCast") {
         console.error("Not a self-cast spell:", spellName);
         return;
     }
@@ -88,10 +88,14 @@ export function castSelfSpell(scene, spellName) {
     // Mark spell as used
     casterPiece.piece.markSpellUsed(spellName);
 
-    // Apply the spell effect
-    if (spellName === "Shield") {
+    // Apply spell effects based on spell properties
+    if (spell.shieldHp) {
         casterPiece.piece.addShield(spell.shieldHp);
     }
+    if (spell.healAmount) {
+        casterPiece.piece.heal(spell.healAmount);
+    }
+    // Future self-cast spells can add more property checks here
 
     audio.menuclick.play();
     // playFMBell(0.3);
@@ -143,13 +147,8 @@ export function enterTargetingMode(scene, spellName) {
         state.currentMenuHandler = null;
     }
 
-    // Change cursor appearance - tint based on spell type
-    let cursorTint = 0xff0000; // Default red for damage spells
-    if (spellName === "Lightning") {
-        cursorTint = 0x4488ff; // Blue for lightning
-    } else if (spellName === "Ice Wall") {
-        cursorTint = 0x88ccff; // Light blue for ice wall
-    }
+    // Change cursor appearance - tint based on spell color
+    const cursorTint = spell.color || 0xff0000; // Use spell's color or default red
     scene.cursor.setTint(cursorTint);
     scene.cursorBlinkEvent.paused = false;
 
@@ -164,145 +163,75 @@ function canCastSpell(scene, spellName) {
 }
 
 export function handleMenuKeydown(event, menu, scene) {
-    console.log("key:", event.key);
-    console.log("menu:",menu)
-    console.log("menus:",menus)
-    if (event && event.key === "1" && state.keymonitor) {
-        if (menu[parseInt(event.key) - 1]) {
-            // Check if we're in spells menu and selecting a spell
-            if (state.lastMenu === "spells" && state.spellsMode) {
-                const selectedSpell = menus["player"]["spells"][0]; // Magic Bolt
+    if (!event || !state.keymonitor) return;
 
-                // Check if spell already used
-                if (!canCastSpell(scene, selectedSpell)) {
-                    audio.error.play();
-                    console.log(`${selectedSpell} already used!`);
-                    return;
-                }
+    const keyPressed = event.key;
 
-                renderMenu(true); // Close menu
-                state.spellsMode = false;
-                enterTargetingMode(scene, selectedSpell);
-                return;
-            }
+    // ========================================================================
+    // SPELL MENU - Dynamic spell casting based on spell registry
+    // ========================================================================
+    if (state.lastMenu === "spells" && state.spellsMode) {
+        // Get the spell configuration by the key pressed
+        const spell = getSpellByKey(keyPressed);
 
-            // Otherwise, open spells menu
-            let pos = renderMenu(true);
-            renderMenu(false, "player", "spells", "spells", scene, pos.x, pos.y);
-
-            if (state.lastMenu === "spells" && !state.spellsMode) {
-                state.spellsMode = true;
-            }
-        }
-    }
-
-    if (event && event.key === "2" && state.keymonitor) {
-        if (menu[parseInt(event.key) - 1]) {
-            // Check if we're in spells menu and selecting Lightning
-            if (state.lastMenu === "spells" && state.spellsMode) {
-                const selectedSpell = menus["player"]["spells"][1]; // Lightning
-
-                // Check if spell already used
-                if (!canCastSpell(scene, selectedSpell)) {
-                    audio.error.play();
-                    console.log(`${selectedSpell} already used!`);
-                    return;
-                }
-
-                renderMenu(true); // Close menu
-                state.spellsMode = false;
-                enterTargetingMode(scene, selectedSpell);
-                return;
-            }
-
-            renderMenu(true);
-            // Enter movement mode
-            state.movementMode = true;
-            state.selectedPiece = scene.gameBoard.getSelectedPiece();
-            state.isSelected = false;
-            state.keymonitor = false;
-            scene.cursorBlinkEvent.paused = false;
-            console.log("Movement mode activated for:", state.selectedPiece);
-        }
-    }
-
-    if (event && event.key === "3" && state.keymonitor) {
-        if (menu[parseInt(event.key) - 1]) {
-            // Check if we're in spells menu and selecting Shield
-            if (state.lastMenu === "spells" && state.spellsMode) {
-                const selectedSpell = menus["player"]["spells"][2]; // Shield
-
-                // Check if spell already used
-                if (!canCastSpell(scene, selectedSpell)) {
-                    audio.error.play();
-                    console.log(`${selectedSpell} already used!`);
-                    return;
-                }
-
-                renderMenu(true); // Close menu
-                state.spellsMode = false;
-                castSelfSpell(scene, selectedSpell);
-                return;
-            }
-
-            let pos = renderMenu(true);
-            // Use the selected player's bio (player1 or player2)
-            const playerCat = state.selectedPlayerCat || "player1";
-            renderMenu(false, playerCat, "bio", "bio", scene, pos.x, pos.y);
-        }
-    }
-
-     if (event && event.key === "4" && state.keymonitor) {
-        console.log("1")
-        console.log((menu[parseInt(event.key) - 1]))
-        if (menu[parseInt(event.key) - 1]) {
-            console.log("3")
-            // Check if we're in spells menu and Mighty Arrow
-            if (state.lastMenu === "spells" && state.spellsMode) {
-                console.log("2")
-                const selectedSpell = menus["player"]["spells"][3]; // Mighty Arrow
-                console.log("selectedSpell: ", selectedSpell);
-                // Check if spell already used
-                if (!canCastSpell(scene, selectedSpell)) {
-                    audio.error.play();
-                    console.log(`${selectedSpell} already used!`);
-                    return;
-                }
-
-                renderMenu(true); // Close menu
-                state.spellsMode = false;
-                enterTargetingMode(scene, selectedSpell);
-                return;
-            }
-
-            // Dead code - root menu only has 3 options, so this never executes
-            // renderMenu(true);
-            // // Enter movement mode
-            // state.movementMode = true;
-            // state.selectedPiece = scene.gameBoard.getSelectedPiece();
-            // state.isSelected = false;
-            // state.keymonitor = false;
-            // scene.cursorBlinkEvent.paused = false;
-            // console.log("Movement mode activated for:", state.selectedPiece);
-        }
-    }
-
-    if (event && event.key === "5" && state.keymonitor) {
-        // Check if we're in spells menu and selecting Ice Wall
-        if (state.lastMenu === "spells" && state.spellsMode) {
-            const selectedSpell = menus["player"]["spells"][4]; // Ice Wall
+        if (spell) {
+            console.log(`Spell selected: ${spell.name} (key: ${keyPressed})`);
 
             // Check if spell already used
-            if (!canCastSpell(scene, selectedSpell)) {
+            if (!canCastSpell(scene, spell.name)) {
                 audio.error.play();
-                console.log(`${selectedSpell} already used!`);
+                console.log(`${spell.name} already used!`);
                 return;
             }
 
-            renderMenu(true); // Close menu
+            // Close menu
+            renderMenu(true);
             state.spellsMode = false;
-            enterTargetingMode(scene, selectedSpell);
+
+            // Route based on spell type
+            if (spell.type === "selfCast") {
+                castSelfSpell(scene, spell.name);
+            } else if (spell.type === "offensive" || spell.type === "utility") {
+                enterTargetingMode(scene, spell.name);
+            } else {
+                console.error(`Unknown spell type: ${spell.type}`);
+            }
+
             return;
         }
+    }
+
+    // ========================================================================
+    // ROOT MENU - Static menu options (Cast Spell, Move, Examine)
+    // ========================================================================
+    if (keyPressed === "1") {
+        // Open spells menu
+        let pos = renderMenu(true);
+        renderMenu(false, "player", "spells", "spells", scene, pos.x, pos.y);
+
+        if (state.lastMenu === "spells" && !state.spellsMode) {
+            state.spellsMode = true;
+        }
+        return;
+    }
+
+    if (keyPressed === "2") {
+        // Enter movement mode
+        renderMenu(true);
+        state.movementMode = true;
+        state.selectedPiece = scene.gameBoard.getSelectedPiece();
+        state.isSelected = false;
+        state.keymonitor = false;
+        scene.cursorBlinkEvent.paused = false;
+        console.log("Movement mode activated for:", state.selectedPiece);
+        return;
+    }
+
+    if (keyPressed === "3") {
+        // Show character bio
+        let pos = renderMenu(true);
+        const playerCat = state.selectedPlayerCat || "player1";
+        renderMenu(false, playerCat, "bio", "bio", scene, pos.x, pos.y);
+        return;
     }
 }

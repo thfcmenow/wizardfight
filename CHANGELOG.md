@@ -1,0 +1,1 @@
+* 2026-02-08 - fixed bug with new Arrow spell - couldn't select

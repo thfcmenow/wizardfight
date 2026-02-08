@@ -1,6 +1,6 @@
 // AI module for computer-controlled player 2
 import { state } from './state.js';
-import { spellData } from './config.js';
+import { spellData, getSpellsByType, getSpellByName } from './config.js';
 import { endTurn } from './turn.js';
 import { chebyshevDistance } from './utils.js';
 import {
@@ -37,19 +37,44 @@ function chooseBestOffensiveSpell(distance, wizard, targetWizard, gameBoard) {
         return null;
     }
 
-    // Prefer Lightning (higher damage) if in range and available
-    if (distance <= spellData["Lightning"].range && !wizard.piece.hasUsedSpell("Lightning")) {
-        return "Lightning";
+    // Get all offensive spells from registry
+    const offensiveSpells = getSpellsByType("offensive");
+
+    // Filter spells that are in range and available
+    const availableSpells = offensiveSpells.filter(spell => {
+        return distance <= spell.range &&
+               !wizard.piece.hasUsedSpell(spell.name);
+    });
+
+    if (availableSpells.length === 0) {
+        return null;
     }
-    // Fall back to Magic Bolt if in range and available
-    if (distance <= spellData["Magic Bolt"].range && !wizard.piece.hasUsedSpell("Magic Bolt")) {
-        return "Magic Bolt";
-    }
-    return null;
+
+    // Sort by damage potential (prefer higher max damage)
+    // Then by range (prefer longer range if damage is equal)
+    availableSpells.sort((a, b) => {
+        const avgDamageA = (a.minDamage + a.maxDamage) / 2;
+        const avgDamageB = (b.minDamage + b.maxDamage) / 2;
+
+        if (avgDamageB !== avgDamageA) {
+            return avgDamageB - avgDamageA; // Higher damage first
+        }
+        return b.range - a.range; // Longer range first
+    });
+
+    // Return the best spell name
+    return availableSpells[0].name;
 }
 
 // Check if AI should cast Shield
 function shouldCastShield(aiWizard, playerWizard, distance, gameBoard) {
+    const shieldSpell = getSpellByName("Shield");
+
+    // Don't cast if Shield spell doesn't exist
+    if (!shieldSpell) {
+        return false;
+    }
+
     // Don't cast if already used
     if (aiWizard.piece.hasUsedSpell("Shield")) {
         return false;
@@ -66,8 +91,12 @@ function shouldCastShield(aiWizard, playerWizard, distance, gameBoard) {
     const hasOffensiveSpell = chooseBestOffensiveSpell(distance, aiWizard, playerWizard, gameBoard) !== null;
     const lowHp = aiWizard.piece.hp <= 8;
 
+    // Get max range of all offensive spells dynamically
+    const offensiveSpells = getSpellsByType("offensive");
+    const maxOffensiveRange = Math.max(...offensiveSpells.map(s => s.range));
+
     // If we're far away and can't attack, shield up
-    if (!hasOffensiveSpell && distance > spellData["Magic Bolt"].range) {
+    if (!hasOffensiveSpell && distance > maxOffensiveRange) {
         return true;
     }
 
@@ -81,6 +110,11 @@ function shouldCastShield(aiWizard, playerWizard, distance, gameBoard) {
 
 // Find best position for Ice Wall (between AI and player)
 function findIceWallPosition(aiWizard, playerWizard, gameBoard) {
+    const iceWallSpell = getSpellByName("Ice Wall");
+    if (!iceWallSpell) {
+        return null;
+    }
+
     const aiX = aiWizard.x;
     const aiY = aiWizard.y;
     const playerX = playerWizard.x;
@@ -112,9 +146,9 @@ function findIceWallPosition(aiWizard, playerWizard, gameBoard) {
             continue;
         }
 
-        // Check if within Ice Wall range
+        // Check if within Ice Wall range (use spell registry)
         const distFromAI = chebyshevDistance(aiX, aiY, pos.x, pos.y);
-        if (distFromAI > spellData["Ice Wall"].range) {
+        if (distFromAI > iceWallSpell.range) {
             continue;
         }
 
