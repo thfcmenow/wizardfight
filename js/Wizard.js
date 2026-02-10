@@ -3,16 +3,20 @@ import { spriteScale } from './config.js';
 import { playShieldLoss } from './audiofx/shieldLoss.js';
 
 export class Wizard {
-    constructor(scene, x, y, spriteKey, scale = spriteScale) {
+    constructor(scene, x, y, spriteKey, scale = spriteScale, playerNum = 1) {
         console.log("adding: ", spriteKey, scale);
         this.scene = scene;
         this.sprite = scene.add.sprite(x, y, spriteKey);
         this.sprite.setScale(scale);
         this.sprite.setDepth(3);
 
-        // HP randomly assigned between 10 and 20
-        // this.hp = Math.floor(Math.random() * 11) + 10;
-        this.hp = 8;
+        // Store player number (1 or 2) for health bar updates
+        this.playerNum = playerNum;
+        this.healthBarSide = playerNum === 1 ? 'left' : 'right';
+
+       
+        // this.hp = Math.floor(Math.random() * 8) + 5;
+        this.hp = 18;
 
         this.maxHp = this.hp;
         console.log(`${spriteKey} HP: ${this.hp}`);
@@ -23,6 +27,9 @@ export class Wizard {
 
         // Track used spells (each spell can only be cast once)
         this.usedSpells = new Set();
+
+        // Update initial health bar
+        this.updateHealthBar();
 
         scene.anims.create({
             key: `${spriteKey}_idle`,
@@ -105,6 +112,13 @@ export class Wizard {
         this.showBubble(`HP: ${this.hp}`, '#00ff00', 2000);
     }
 
+    // Update the external health bar display
+    updateHealthBar() {
+        if (typeof window.updateHealthBar === 'function') {
+            window.updateHealthBar(this.healthBarSide, this.hp);
+        }
+    }
+
     // Take damage and show damage bubble, then show new HP
     takeDamage(amount) {
         let remainingDamage = amount;
@@ -135,6 +149,9 @@ export class Wizard {
         }
 
         console.log(`Wizard took ${amount} damage (${shieldDamage} to shield, ${hpDamage} to HP), HP now: ${this.hp}`);
+
+        // Update health bar
+        this.updateHealthBar();
 
         // Show damage bubble (red)
         const damageText = shieldDamage > 0 && hpDamage > 0

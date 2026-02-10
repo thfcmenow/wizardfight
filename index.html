@@ -102,8 +102,15 @@ https://creativecommons.org/licenses/by/3.0/
             pointer-events: none; /* Don't block clicks */
         }
 
-        .wizard-left { left: 5%; }
-        .wizard-right { right: 5%; transform: scaleX(-1); }
+        .wizard-left {
+            left: 5%;
+            transition: all 0.3s ease;
+        }
+        .wizard-right {
+            right: 5%;
+            transform: scaleX(-1);
+            transition: all 0.3s ease;
+        }
 
         .wizard-sprite {
             width: 64px;
@@ -115,6 +122,91 @@ https://creativecommons.org/licenses/by/3.0/
         @keyframes idle {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
+        }
+
+        /* Health Bar Containers */
+        .health-bar-container {
+            position: absolute;
+            width: 30px;
+            height: 300px;
+            z-index: 5;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .health-bar-left {
+            /* Position set by JavaScript */
+        }
+
+        .health-bar-right {
+            /* Position set by JavaScript */
+        }
+
+        /* Health bar background (empty slots) */
+        .health-bar-bg {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 3px;
+        }
+
+        .health-segment-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-sizing: border-box;
+        }
+
+        /* Active health segments */
+        .health-bar-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 3px;
+            transition: height 0.3s ease;
+        }
+
+        .health-segment {
+            width: 100%;
+            height: 8px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Color coding - green to yellow to red */
+        .health-segment.high {
+            background: linear-gradient(90deg, #00ff00 0%, #88ff00 100%);
+            box-shadow: 0 0 5px #00ff00;
+        }
+
+        .health-segment.medium {
+            background: linear-gradient(90deg, #ffff00 0%, #ffaa00 100%);
+            box-shadow: 0 0 5px #ffff00;
+        }
+
+        .health-segment.low {
+            background: linear-gradient(90deg, #ff6600 0%, #ff0000 100%);
+            box-shadow: 0 0 5px #ff0000;
+        }
+
+        /* HP Label */
+        .health-label {
+            position: absolute;
+            top: -25px;
+            width: 100%;
+            text-align: center;
+            color: #ffffff;
+            font-family: 'minecraft', sans-serif;
+            font-size: 14px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
         }
 
         /* Spell Cast Animation */
@@ -250,6 +342,19 @@ https://creativecommons.org/licenses/by/3.0/
                 <rect x="10" y="3" width="3" height="2" fill="#00ffff" />
             </svg>
         </div>
+
+        <!-- Health Bars -->
+        <div class="health-bar-container health-bar-left">
+            <div class="health-label">HP: <span id="hp-left">20</span></div>
+            <div class="health-bar-bg" id="health-bg-left"></div>
+            <div class="health-bar-fill" id="health-fill-left"></div>
+        </div>
+
+        <div class="health-bar-container health-bar-right">
+            <div class="health-label">HP: <span id="hp-right">20</span></div>
+            <div class="health-bar-bg" id="health-bg-right"></div>
+            <div class="health-bar-fill" id="health-fill-right"></div>
+        </div>
     </div>
 
     <!-- Resolution Warning Overlay -->
@@ -316,6 +421,135 @@ https://creativecommons.org/licenses/by/3.0/
             bg.appendChild(ember);
         }
 
+        // Health bar management
+        const MAX_HP = 20;
+        const SEGMENT_COUNT = 20; // Number of segments in the health bar
+
+        function initHealthBars() {
+            const healthBgLeft = document.getElementById('health-bg-left');
+            const healthBgRight = document.getElementById('health-bg-right');
+
+            // Create background segments (empty slots)
+            for (let i = 0; i < SEGMENT_COUNT; i++) {
+                const segmentLeft = document.createElement('div');
+                segmentLeft.className = 'health-segment-bg';
+                healthBgLeft.appendChild(segmentLeft);
+
+                const segmentRight = document.createElement('div');
+                segmentRight.className = 'health-segment-bg';
+                healthBgRight.appendChild(segmentRight);
+            }
+
+            // Initialize with full health
+            updateHealthBar('left', MAX_HP);
+            updateHealthBar('right', MAX_HP);
+        }
+
+        function updateHealthBar(side, currentHp) {
+            const fillContainer = document.getElementById(`health-fill-${side}`);
+            const hpLabel = document.getElementById(`hp-${side}`);
+
+            // Update HP label
+            hpLabel.textContent = Math.max(0, currentHp);
+
+            // Clear existing segments
+            fillContainer.innerHTML = '';
+
+            // Calculate how many segments to show
+            const segmentsToShow = Math.ceil((currentHp / MAX_HP) * SEGMENT_COUNT);
+
+            // Create active segments
+            for (let i = 0; i < segmentsToShow; i++) {
+                const segment = document.createElement('div');
+                segment.className = 'health-segment';
+
+                // Color coding based on position
+                const percentFromBottom = (i + 1) / SEGMENT_COUNT;
+                if (percentFromBottom <= 0.33) {
+                    segment.classList.add('low');
+                } else if (percentFromBottom <= 0.66) {
+                    segment.classList.add('medium');
+                } else {
+                    segment.classList.add('high');
+                }
+
+                fillContainer.appendChild(segment);
+            }
+
+            // Set height of fill container
+            const heightPercent = (currentHp / MAX_HP) * 100;
+            fillContainer.style.height = heightPercent + '%';
+        }
+
+        // Make updateHealthBar globally accessible for Phaser
+        window.updateHealthBar = updateHealthBar;
+
+        // Initialize health bars
+        initHealthBars();
+
+        // Position wizards and health bars relative to game grid
+        function positionWizards() {
+            const canvas = document.querySelector('canvas');
+            if (!canvas) {
+                // Canvas not ready yet, try again soon
+                setTimeout(positionWizards, 100);
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const wizardLeft = document.querySelector('.wizard-left');
+            const wizardRight = document.querySelector('.wizard-right');
+            const margin = 20; // Gap between board and wizards
+            const wizardWidth = 120;
+
+            if (wizardLeft && wizardRight && rect.width > 0) {
+                // Position left wizard to the left of the grid
+                // Left edge of wizard = canvas left edge - wizard width - margin
+                const leftPos = Math.max(10, rect.left - wizardWidth - margin);
+                wizardLeft.style.left = leftPos + 'px';
+
+                // Position right wizard to the right of the grid
+                // Distance from viewport right edge
+                const rightPos = Math.max(10, window.innerWidth - rect.right - wizardWidth - margin);
+                wizardRight.style.right = rightPos + 'px';
+
+                // Bottom position for both (align with canvas bottom)
+                const bottomPos = Math.max(20, window.innerHeight - rect.bottom);
+                wizardLeft.style.bottom = bottomPos + 'px';
+                wizardRight.style.bottom = bottomPos + 'px';
+
+                // Position health bars above wizards
+                const healthBarLeft = document.querySelector('.health-bar-left');
+                const healthBarRight = document.querySelector('.health-bar-right');
+
+                if (healthBarLeft && healthBarRight) {
+                    // Position health bars centered above their wizards
+                    healthBarLeft.style.left = (leftPos + wizardWidth / 2 - 15) + 'px'; // 15 = half of health bar width
+                    healthBarLeft.style.bottom = (bottomPos + 140) + 'px'; // 140px above wizard
+
+                    const rightPosFromLeft = window.innerWidth - rightPos - wizardWidth;
+                    healthBarRight.style.left = (rightPosFromLeft + wizardWidth / 2 - 15) + 'px';
+                    healthBarRight.style.bottom = (bottomPos + 140) + 'px';
+                }
+
+                console.log('Wizards positioned:', {
+                    canvasRect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height },
+                    leftPos,
+                    rightPos,
+                    bottomPos,
+                    windowSize: { width: window.innerWidth, height: window.innerHeight }
+                });
+            }
+        }
+
+        // Position wizards after a longer delay (wait for canvas to be fully sized)
+        setTimeout(positionWizards, 1000);
+
+        // Reposition on window resize
+        window.addEventListener('resize', () => {
+            setTimeout(positionWizards, 200);
+        });
+
         // Spell casting effect in the background
         setInterval(() => {
             const isLeft = Math.random() > 0.5;
@@ -325,7 +559,7 @@ https://creativecommons.org/licenses/by/3.0/
             spell.style.boxShadow = `0 0 15px ${spell.style.backgroundColor}`;
             spell.style.top = (40 + Math.random() * 20) + '%';
             spell.style.left = isLeft ? '10%' : '90%';
-            
+
             bg.appendChild(spell);
 
             const animation = spell.animate([

@@ -148,10 +148,10 @@ function create() {
         }
     }
 
-    let whiteWizard = new Wizard(this, 2, 2, 'white_wizard', 1);
+    let whiteWizard = new Wizard(this, 2, 2, 'white_wizard', 1, 1); // Player 1 (left health bar)
     this.gameBoard.addPiece(whiteWizard, 1, 1, "player1");
 
-    let cartoonWizard = new Wizard(this, 2, 2, 'cartoon_wizard', 1);
+    let cartoonWizard = new Wizard(this, 2, 2, 'cartoon_wizard', 1, 2); // Player 2 (right health bar)
     this.gameBoard.addPiece(cartoonWizard, state.bx, state.by, "player2");
 
     this.gameBoard.setupCursor();
