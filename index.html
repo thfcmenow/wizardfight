@@ -165,6 +165,56 @@ https://creativecommons.org/licenses/by/3.0/
             font-family: ponari;
             src: local('ponari'), url(fonts/ponari.ttf) format('truetype');
         }
+
+        /* Resolution Warning Overlay */
+        #resolution-warning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 26, 0.95);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: 'minecraft', sans-serif;
+        }
+
+        #resolution-warning.active {
+            display: flex;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #1b2735 0%, #090a0f 100%);
+            border: 4px solid #e74c3c;
+            border-radius: 10px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(231, 76, 60, 0.5);
+        }
+
+        .warning-title {
+            color: #e74c3c;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .warning-message {
+            color: #ffffff;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .warning-details {
+            color: #aaaaaa;
+            font-size: 14px;
+            margin-top: 20px;
+        }
     </style>
     
     <script>
@@ -202,9 +252,54 @@ https://creativecommons.org/licenses/by/3.0/
         </div>
     </div>
 
-    <!-- This ID is commonly used as a parent for Phaser. 
+    <!-- Resolution Warning Overlay -->
+    <div id="resolution-warning">
+        <div class="warning-box">
+            <div class="warning-title">⚠️ Resolution Too Small</div>
+            <div class="warning-message">
+                Minimum Window Resolution: 1000x700
+            </div>
+            <div class="warning-message">
+                Please resize your window and refresh the game
+            </div>
+            <div class="warning-details">
+                Current Resolution: <span id="current-resolution"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- This ID is commonly used as a parent for Phaser.
          If your game.js uses a parent config, it will dock here. -->
     <div id="game-container"></div>
+
+    <!-- Resolution Check Script (runs before game loads) -->
+    <script>
+        const MIN_WIDTH = 1000;
+        const MIN_HEIGHT = 700;
+
+        function checkResolution() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const warning = document.getElementById('resolution-warning');
+            const currentRes = document.getElementById('current-resolution');
+
+            currentRes.textContent = `${width}x${height}`;
+
+            if (width < MIN_WIDTH || height < MIN_HEIGHT) {
+                warning.classList.add('active');
+                return false;
+            } else {
+                warning.classList.remove('active');
+                return true;
+            }
+        }
+
+        // Check on load
+        checkResolution();
+
+        // Also check on resize (optional - helps user know when they've resized enough)
+        window.addEventListener('resize', checkResolution);
+    </script>
 
     <!-- Moving the script to the end ensures the container is ready -->
     <script type="module" src="./js/game.js"></script> 
