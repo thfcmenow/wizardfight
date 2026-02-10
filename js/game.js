@@ -54,7 +54,13 @@ function preload() {
     this.load.audio("gamemusic", ["./assets/prism.mp3"]);
     this.load.audio("actionmusic", ["./assets/action.mp3"]);
     this.load.image('iceTexture', ["./textures/ice.png"]);
-    this.load.spritesheet('goblin_sprite', './assets/goblin-face-right.png', { frameWidth: 100, frameHeight: 100 });
+
+
+   // Change this in your Preload scene
+this.load.spritesheet('goblin_sprite', 'assets/goblin-face-right.png', { 
+    frameWidth: 75, 
+    frameHeight: 75 
+});
 }
 
 function create() {
