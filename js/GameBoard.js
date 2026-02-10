@@ -9,6 +9,8 @@ export class GameBoard {
         this.gridWidth = gridWidth;
         this.gridHeight = gridHeight;
         this.pieces = [];
+        this.destroyedTiles = new Set(); // Track destroyed tile coordinates as "x,y" strings
+        this.tileSprites = {}; // Store references to tile sprites for visual updates
     }
 
     toggleMenu(x, y, toggle, cat) {
@@ -122,6 +124,13 @@ export class GameBoard {
 
         // Check bounds
         if (newX < 1 || newX > this.boardWidth || newY < 1 || newY > this.boardHeight) {
+            return false;
+        }
+
+        // Check if tile is destroyed
+        const tileKey = `${newX},${newY}`;
+        if (this.destroyedTiles.has(tileKey)) {
+            console.log("Can't move to destroyed tile!");
             return false;
         }
 
@@ -247,5 +256,42 @@ export class GameBoard {
         }
 
         return null;
+    }
+
+    // Destroy a tile at the given position
+    // Makes the tile impassable and updates its visual appearance
+    destroyTile(x, y) {
+        const tileKey = `${x},${y}`;
+
+        // Check if already destroyed
+        if (this.destroyedTiles.has(tileKey)) {
+            return false;
+        }
+
+        // Mark as destroyed
+        this.destroyedTiles.add(tileKey);
+
+        // Update visual appearance if we have a reference to the tile sprite
+        if (this.tileSprites[tileKey]) {
+            const tileSprite = this.tileSprites[tileKey];
+
+            // Darken the tile and add a red tint to show it's destroyed
+            tileSprite.setTint(0x330000);
+            tileSprite.setAlpha(0.5);
+
+            // Optional: add a crack/hole effect with graphics
+            const graphics = this.scene.add.graphics();
+            graphics.setDepth(3); // Above tiles but below pieces
+            graphics.fillStyle(0x000000, 0.7);
+            graphics.fillCircle(tileSprite.x, tileSprite.y, state.tileSize * 0.4);
+        }
+
+        console.log(`Tile destroyed at (${x}, ${y})`);
+        return true;
+    }
+
+    // Check if a tile is destroyed
+    isTileDestroyed(x, y) {
+        return this.destroyedTiles.has(`${x},${y}`);
     }
 }

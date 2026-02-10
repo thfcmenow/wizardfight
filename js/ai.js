@@ -152,6 +152,11 @@ function findIceWallPosition(aiWizard, playerWizard, gameBoard) {
             continue;
         }
 
+        // Check if tile is destroyed
+        if (gameBoard.isTileDestroyed(pos.x, pos.y)) {
+            continue;
+        }
+
         // Check if square is empty
         const occupied = gameBoard.pieces.find(p =>
             p.x === pos.x && p.y === pos.y && p.piece !== "cursor"
@@ -209,6 +214,11 @@ function getBestMoveDirection(fromX, fromY, toX, toY, gameBoard) {
         // Check bounds
         if (newX < 1 || newX > gameBoard.boardWidth ||
             newY < 1 || newY > gameBoard.boardHeight) {
+            continue;
+        }
+
+        // Check if tile is destroyed
+        if (gameBoard.isTileDestroyed(newX, newY)) {
             continue;
         }
 

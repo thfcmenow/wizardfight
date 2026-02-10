@@ -96,6 +96,10 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
 
                 return;
             }
+        } else {
+            // No target found - destroy the tile at this position
+            console.log(`Spell hit empty square at (${targetPos.x}, ${targetPos.y}) - destroying tile`);
+            gameBoard.destroyTile(targetPos.x, targetPos.y);
         }
 
         playThud();
@@ -160,6 +164,13 @@ function fireSpellProjectile(spellName, startPixel, endPixel, onComplete) {
  */
 export function createIceWall(scene, targetPos, onComplete) {
     const gameBoard = scene.gameBoard;
+
+    // Check if tile is destroyed
+    if (gameBoard.isTileDestroyed(targetPos.x, targetPos.y)) {
+        audio.error.play();
+        console.log("Can't place Ice Wall on destroyed tile!");
+        return false;
+    }
 
     // Check if target square is already occupied
     const occupied = gameBoard.pieces.find(p =>

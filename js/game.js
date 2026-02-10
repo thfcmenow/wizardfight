@@ -125,6 +125,9 @@ function create() {
     });
     this.cursorBlinkEvent.paused = false;
 
+    // Create game board first so we can store tile references
+    this.gameBoard = new GameBoard(this, gridWidth, gridHeight);
+
     // Create the grid tiles (fixed 15x10 with dynamic tile size), centered on screen
     for (let y = 1; y <= gridHeight; y++) {
         for (let x = 1; x <= gridWidth; x++) {
@@ -136,13 +139,14 @@ function create() {
             tile.setDepth(2);
             tile.setDisplaySize(state.tileSize, state.tileSize);
 
+            // Store tile sprite reference in gameBoard for later destruction effects
+            const tileKey = `${x},${y}`;
+            this.gameBoard.tileSprites[tileKey] = tile;
+
             state.bx = x;
             state.by = y;
         }
     }
-
-    // Create game board and pieces
-    this.gameBoard = new GameBoard(this, gridWidth, gridHeight);
 
     let whiteWizard = new Wizard(this, 2, 2, 'white_wizard', 1);
     this.gameBoard.addPiece(whiteWizard, 1, 1, "player1");
