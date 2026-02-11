@@ -48,6 +48,7 @@ function preload() {
     this.load.image('tile', './assets/tile.jpg');
     this.load.spritesheet('white_wizard', './assets/white_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
     this.load.spritesheet('cartoon_wizard', './assets/cartoon_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
+    this.load.spritesheet('goblin_right', './assets/goblin-right.jpg', { frameWidth: 512, frameHeight: 512 });
     this.load.image('cursor', './assets/cursor2.png');
     this.load.audio("menuclick", ["./assets/menuclick.mp3"]);
     this.load.audio("error", ["./assets/error.mp3"]);
