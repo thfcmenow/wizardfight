@@ -3,7 +3,7 @@ import { spriteScale } from '../config.js';
 import { state } from '../state.js';
 
 export class Goblin {
-    constructor(scene, gridX, gridY, scale = spriteScale * 0.7) {
+    constructor(scene, gridX, gridY, scale = spriteScale) {
         console.log("Creating goblin at grid:", gridX, gridY);
         this.scene = scene;
 
@@ -11,7 +11,7 @@ export class Goblin {
         const pixelX = state.gridToPixelX(gridX);
         const pixelY = state.gridToPixelY(gridY);
 
-        this.sprite = scene.add.sprite(pixelX, pixelY, 'goblin_sprite');
+        this.sprite = scene.add.sprite(pixelX, pixelY, 'goblin_right');
         this.sprite.setScale(scale);
         this.sprite.setDepth(3);
 
@@ -25,12 +25,12 @@ export class Goblin {
         if (!scene.anims.exists('goblin_right')) {
             scene.anims.create({
                 key: 'goblin_right',
-                frames: scene.anims.generateFrameNumbers('goblin_sprite', { start: 0, end: 0 }),
+                frames: scene.anims.generateFrameNumbers('goblin_right', { start: 0, end: 0 }),
                 frameRate: 1,
                 repeat: -1
             });
         }
-        this.sprite.play('goblin_sprite_idle');
+        this.sprite.play('goblin_right');
     }
 
     // Show a text bubble above the goblin with hovering animation

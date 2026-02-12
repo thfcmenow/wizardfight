@@ -9,6 +9,7 @@ import { initMagicBolt } from './spells/bolt.js';
 import { initLightning } from './spells/lightning.js';
 import { initArrow } from './spells/arrow.js';
 import { castOffensiveSpell, createIceWall, executeMove } from './actions.js';
+import { Goblin } from './creatures/Goblin.js';
 
 // Exit targeting mode and restore cursor
 function exitTargetingMode(scene) {
@@ -48,7 +49,7 @@ function preload() {
     this.load.image('tile', './assets/tile.jpg');
     this.load.spritesheet('white_wizard', './assets/white_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
     this.load.spritesheet('cartoon_wizard', './assets/cartoon_wizard_idle.png', { frameWidth: 100, frameHeight: 100 });
-    this.load.spritesheet('goblin_right', './assets/goblin-right.jpg', { frameWidth: 512, frameHeight: 512 });
+    this.load.spritesheet('goblin_right', './assets/goblin-right.png', { frameWidth: 100, frameHeight: 100 });
     this.load.image('cursor', './assets/cursor2.png');
     this.load.audio("menuclick", ["./assets/menuclick.mp3"]);
     this.load.audio("error", ["./assets/error.mp3"]);
@@ -176,6 +177,10 @@ function create() {
     // Show initial turn dialog
     showTurnDialog();
  
+    // goblin test
+    console.log("Adding goblin...");
+    let goblin = new Goblin(this, 5, 5,1.005);
+    this.gameBoard.addPiece(goblin, 5, 5, "goblin_right");
 
 }
 
