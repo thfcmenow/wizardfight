@@ -174,13 +174,26 @@ function create() {
         cartoonWizard.showHp();
     });
 
+    // WASD + diagonal keys (Q/E/Z/C) + S as space
+    this.keys = this.input.keyboard.addKeys({
+        Q: Phaser.Input.Keyboard.KeyCodes.Q,
+        W: Phaser.Input.Keyboard.KeyCodes.W,
+        E: Phaser.Input.Keyboard.KeyCodes.E,
+        A: Phaser.Input.Keyboard.KeyCodes.A,
+        S: Phaser.Input.Keyboard.KeyCodes.S,
+        D: Phaser.Input.Keyboard.KeyCodes.D,
+        Z: Phaser.Input.Keyboard.KeyCodes.Z,
+        X: Phaser.Input.Keyboard.KeyCodes.X,
+        C: Phaser.Input.Keyboard.KeyCodes.C,
+    });
+
     // Show initial turn dialog
     showTurnDialog();
  
     // goblin test
-    console.log("Adding goblin...");
+    /* console.log("Adding goblin...");
     let goblin = new Goblin(this, 5, 5,1.005);
-    this.gameBoard.addPiece(goblin, 5, 5, "goblin_right");
+    this.gameBoard.addPiece(goblin, 5, 5, "goblin_right");*/
 
 }
 
@@ -189,6 +202,7 @@ async function update() {
     if (state.turnDialogActive) return;
 
     const cursors = this.input.keyboard.createCursorKeys();
+    const keys = this.keys;
 
     // Targeting mode - select target for spell
     if (state.targetingMode) {
@@ -223,6 +237,16 @@ async function update() {
             this.targetDownKeyDown = false;
         }
 
+        // Letter key targeting movement
+        if (keys.Q.isDown && !this.targetQKeyDown) { dx = -1; dy = -1; this.targetQKeyDown = true; } else if (keys.Q.isUp) { this.targetQKeyDown = false; }
+        if (keys.W.isDown && !this.targetWKeyDown) { dy = -1; this.targetWKeyDown = true; } else if (keys.W.isUp) { this.targetWKeyDown = false; }
+        if (keys.E.isDown && !this.targetEKeyDown) { dx = 1; dy = -1; this.targetEKeyDown = true; } else if (keys.E.isUp) { this.targetEKeyDown = false; }
+        if (keys.A.isDown && !this.targetAKeyDown) { dx = -1; this.targetAKeyDown = true; } else if (keys.A.isUp) { this.targetAKeyDown = false; }
+        if (keys.D.isDown && !this.targetDKeyDown) { dx = 1; this.targetDKeyDown = true; } else if (keys.D.isUp) { this.targetDKeyDown = false; }
+        if (keys.Z.isDown && !this.targetZKeyDown) { dx = -1; dy = 1; this.targetZKeyDown = true; } else if (keys.Z.isUp) { this.targetZKeyDown = false; }
+        if (keys.X.isDown && !this.targetXKeyDown) { dy = 1; this.targetXKeyDown = true; } else if (keys.X.isUp) { this.targetXKeyDown = false; }
+        if (keys.C.isDown && !this.targetCKeyDown) { dx = 1; dy = 1; this.targetCKeyDown = true; } else if (keys.C.isUp) { this.targetCKeyDown = false; }
+
         // Move cursor if within range
         if (dx !== 0 || dy !== 0) {
             const cursorPos = this.gameBoard.reportCursor();
@@ -251,8 +275,8 @@ async function update() {
             }
         }
 
-        // Confirm target with Space
-        if (cursors.space.isDown && !this.spaceKeyDown) {
+        // Confirm target with Space or S
+        if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
             this.spaceKeyDown = true;
             const cursorPos = this.gameBoard.reportCursor();
 
@@ -326,7 +350,7 @@ async function update() {
                 audio.error.play();
                 console.log("Target out of range!");
             }
-        } else if (cursors.space.isUp) {
+        } else if (cursors.space.isUp && keys.S.isUp) {
             this.spaceKeyDown = false;
         }
 
@@ -377,6 +401,16 @@ async function update() {
             this.moveDownKeyDown = false;
         }
 
+        // Letter key movement
+        if (keys.Q.isDown && !this.moveQKeyDown) { dx = -1; dy = -1; this.moveQKeyDown = true; } else if (keys.Q.isUp) { this.moveQKeyDown = false; }
+        if (keys.W.isDown && !this.moveWKeyDown) { dy = -1; this.moveWKeyDown = true; } else if (keys.W.isUp) { this.moveWKeyDown = false; }
+        if (keys.E.isDown && !this.moveEKeyDown) { dx = 1; dy = -1; this.moveEKeyDown = true; } else if (keys.E.isUp) { this.moveEKeyDown = false; }
+        if (keys.A.isDown && !this.moveAKeyDown) { dx = -1; this.moveAKeyDown = true; } else if (keys.A.isUp) { this.moveAKeyDown = false; }
+        if (keys.D.isDown && !this.moveDKeyDown) { dx = 1; this.moveDKeyDown = true; } else if (keys.D.isUp) { this.moveDKeyDown = false; }
+        if (keys.Z.isDown && !this.moveZKeyDown) { dx = -1; dy = 1; this.moveZKeyDown = true; } else if (keys.Z.isUp) { this.moveZKeyDown = false; }
+        if (keys.X.isDown && !this.moveXKeyDown) { dy = 1; this.moveXKeyDown = true; } else if (keys.X.isUp) { this.moveXKeyDown = false; }
+        if (keys.C.isDown && !this.moveCKeyDown) { dx = 1; dy = 1; this.moveCKeyDown = true; } else if (keys.C.isUp) { this.moveCKeyDown = false; }
+
         if (dx !== 0 || dy !== 0) {
             const moved = executeMove(this.gameBoard, state.selectedPiece, dx, dy, () => {
                 state.movementMode = false;
@@ -389,14 +423,14 @@ async function update() {
             }
         }
 
-        // Cancel movement mode with space
-        if (cursors.space.isDown && !this.spaceKeyDown) {
+        // Cancel movement mode with space or S
+        if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
             audio.menuclick.play();
             state.movementMode = false;
             state.selectedPiece = null;
             this.spaceKeyDown = true;
             console.log("Movement cancelled");
-        } else if (cursors.space.isUp) {
+        } else if (cursors.space.isUp && keys.S.isUp) {
             this.spaceKeyDown = false;
         }
         return;
@@ -455,8 +489,36 @@ async function update() {
         this.downKeyDown = false;
     }
 
-    // Space - select/deselect
-    if (cursors.space.isDown && !this.spaceKeyDown) {
+    // Letter key cursor movement (WASD + diagonals QEZXC)
+    {
+        const letterMoves = [
+            { key: 'Q', dx: -1, dy: -1 }, { key: 'W', dx: 0, dy: -1 }, { key: 'E', dx: 1, dy: -1 },
+            { key: 'A', dx: -1, dy: 0 },                                 { key: 'D', dx: 1, dy: 0 },
+            { key: 'Z', dx: -1, dy: 1 },  { key: 'X', dx: 0, dy: 1 },  { key: 'C', dx: 1, dy: 1 },
+        ];
+        for (const { key, dx, dy } of letterMoves) {
+            const tracker = `${key.toLowerCase()}CursorKeyDown`;
+            if (keys[key].isDown && !this[tracker] && !state.isSelected) {
+                const pos = this.gameBoard.reportCursor();
+                const newX = pos.x + dx;
+                const newY = pos.y + dy;
+                if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
+                    this.cursor.x += dx * state.tileSize;
+                    this.cursor.y += dy * state.tileSize;
+                    if (dx !== 0) this.gameBoard.alterCursor("x", dx);
+                    if (dy !== 0) this.gameBoard.alterCursor("y", dy);
+                } else {
+                    audio.error.play();
+                }
+                this[tracker] = true;
+            } else if (keys[key].isUp) {
+                this[tracker] = false;
+            }
+        }
+    }
+
+    // Space or S - select/deselect
+    if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
         audio.menuclick.play();
         state.isSelected = !state.isSelected;
         this.spaceKeyDown = true;
@@ -474,7 +536,7 @@ async function update() {
             this.gameBoard.toggleMenu(0, 0, false);
             state.keymonitor = false;
         }
-    } else if (cursors.space.isUp) {
+    } else if (cursors.space.isUp && keys.S.isUp) {
         this.spaceKeyDown = false;
     }
 
