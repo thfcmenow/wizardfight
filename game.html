@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<!-- 
+Standard Game Music: Bensound.com
+License code: AODQ6MSYKZKTL1LB 
+Action Game Music:
+Noise by Alex-Productions | https://onsound.eu/
+Music promoted by https://www.chosic.com/free-music/all/
+Creative Commons CC BY 3.0
+https://creativecommons.org/licenses/by/3.0/
+-->
+<html>
+<head>
+    <title>WizardFight</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg-color: #0a0a1a;
+            --wizard-left: #4a90e2;
+            --wizard-right: #e74c3c;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            /*background-color: var(--bg-color);*/
+            font-family: 'minecraft', sans-serif;
+        }
+
+        /* --- THE BACKGROUND STAGE --- */
+        #game-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+            overflow: hidden;
+        }
+
+        /* Parallax Stars */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 200%;
+            background: transparent;
+        }
+
+        .stars-small {
+            width: 1px;
+            height: 1px;
+            background: transparent;
+            box-shadow: 454px 124px #FFF , 123px 543px #FFF, 876px 12px #FFF, 1234px 876px #FFF, 543px 234px #FFF, 987px 543px #FFF, 123px 987px #FFF, 654px 321px #FFF;
+            animation: moveStars 100s linear infinite;
+        }
+
+        .stars-med {
+            width: 2px;
+            height: 2px;
+            box-shadow: 234px 543px #FFF, 765px 123px #FFF, 432px 876px #FFF, 987px 234px #FFF, 123px 432px #FFF;
+            animation: moveStars 150s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes moveStars {
+            from { transform: translateY(0); }
+            to { transform: translateY(-1000px); }
+        }
+
+        /* Animated Embers */
+        .ember {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 200, 50, 0.4);
+            border-radius: 50%;
+            filter: blur(1px);
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-10vh) translateX(100px); opacity: 0; }
+        }
+
+        /* 8-Bit Wizards in the Margins */
+        .wizard-container {
+            position: absolute;
+            bottom: 20px;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            pointer-events: none; /* Don't block clicks */
+        }
+
+        .wizard-left {
+            left: 5%;
+            transition: all 0.3s ease;
+        }
+        .wizard-right {
+            right: 5%;
+            transform: scaleX(-1);
+            transition: all 0.3s ease;
+        }
+
+        .wizard-sprite {
+            width: 64px;
+            height: 64px;
+            image-rendering: pixelated;
+            animation: idle 2s infinite ease-in-out;
+        }
+
+        @keyframes idle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Health Bar Containers */
+        .health-bar-container {
+            position: absolute;
+            width: 30px;
+            height: 300px;
+            z-index: 5;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .health-bar-left {
+            /* Position set by JavaScript */
+        }
+
+        .health-bar-right {
+            /* Position set by JavaScript */
+        }
+
+        /* Health bar background (empty slots) */
+        .health-bar-bg {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 3px;
+        }
+
+        .health-segment-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-sizing: border-box;
+        }
+
+        /* Active health segments */
+        .health-bar-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 3px;
+            transition: height 0.3s ease;
+        }
+
+        .health-segment {
+            width: 100%;
+            height: 8px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Color coding - green to yellow to red */
+        .health-segment.high {
+            background: linear-gradient(90deg, #00ff00 0%, #88ff00 100%);
+            box-shadow: 0 0 5px #00ff00;
+        }
+
+        .health-segment.medium {
+            background: linear-gradient(90deg, #ffff00 0%, #ffaa00 100%);
+            box-shadow: 0 0 5px #ffff00;
+        }
+
+        .health-segment.low {
+            background: linear-gradient(90deg, #ff6600 0%, #ff0000 100%);
+            box-shadow: 0 0 5px #ff0000;
+        }
+
+        /* HP Label */
+        .health-label {
+            position: absolute;
+            top: -25px;
+            width: 100%;
+            text-align: center;
+            color: #ffffff;
+            font-family: 'minecraft', sans-serif;
+            font-size: 14px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Spell Cast Animation */
+        .spell {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* --- THE ACTUAL GAME CANVAS --- */
+        /* We target the canvas generated by Phaser specifically */
+        canvas {
+            position: relative;
+            z-index: 100 !important; /* Ensure it is above everything else */
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 4px solid #333;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+
+        /* This container helps center the canvas */
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none; /* Container is passthrough */
+        }
+
+        /* Make sure the canvas itself still receives clicks */
+        #game-container canvas {
+            pointer-events: auto;
+        }
+
+        @font-face {
+            font-family: minecraft;
+            src: local('minecraft'), url(fonts/minecraft.ttf) format('truetype');
+        }
+        @font-face {
+            font-family: ponari;
+            src: local('ponari'), url(fonts/ponari.ttf) format('truetype');
+        }
+
+        /* Resolution Warning Overlay */
+        #resolution-warning {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 26, 0.95);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: 'minecraft', sans-serif;
+        }
+
+        #resolution-warning.active {
+            display: flex;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #1b2735 0%, #090a0f 100%);
+            border: 4px solid #e74c3c;
+            border-radius: 10px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(231, 76, 60, 0.5);
+        }
+
+        .warning-title {
+            color: #e74c3c;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .warning-message {
+            color: #ffffff;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .warning-details {
+            color: #aaaaaa;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+    </style>
+    
+    <script>
+        document.fonts.load('10pt "minecraft"');
+        document.fonts.load('10pt "ponari"');
+    </script>
+    <script src="./engine/phaser.min.js"></script>
+</head>
+<body>
+
+    <div id="game-background">
+        <!-- Parallax layers -->
+        <div class="stars stars-small"></div>
+        <div class="stars stars-med"></div>
+        
+        <!-- Animated 8-bit Wizards -->
+        <div class="wizard-container wizard-left">
+            <svg class="wizard-sprite" viewBox="0 0 16 16" fill="var(--wizard-left)">
+                <rect x="6" y="2" width="4" height="4" />
+                <rect x="5" y="6" width="6" height="8" />
+                <rect x="4" y="10" width="2" height="4" />
+                <rect x="11" y="4" width="1" height="10" fill="#8B4513" />
+                <rect x="10" y="3" width="3" height="2" fill="#FFD700" />
+            </svg>
+        </div>
+
+        <div class="wizard-container wizard-right">
+            <svg class="wizard-sprite" viewBox="0 0 16 16" fill="var(--wizard-right)">
+                <rect x="6" y="2" width="4" height="4" />
+                <rect x="5" y="6" width="6" height="8" />
+                <rect x="4" y="10" width="2" height="4" />
+                <rect x="11" y="4" width="1" height="10" fill="#8B4513" />
+                <rect x="10" y="3" width="3" height="2" fill="#00ffff" />
+            </svg>
+        </div>
+
+        <!-- Health Bars -->
+        <div class="health-bar-container health-bar-left">
+            <div class="health-label">HP: <span id="hp-left">20</span></div>
+            <div class="health-bar-bg" id="health-bg-left"></div>
+            <div class="health-bar-fill" id="health-fill-left"></div>
+        </div>
+
+        <div class="health-bar-container health-bar-right">
+            <div class="health-label">HP: <span id="hp-right">20</span></div>
+            <div class="health-bar-bg" id="health-bg-right"></div>
+            <div class="health-bar-fill" id="health-fill-right"></div>
+        </div>
+    </div>
+
+    <!-- Resolution Warning Overlay -->
+    <div id="resolution-warning">
+        <div class="warning-box">
+            <div class="warning-title">⚠️ Resolution Too Small</div>
+            <div class="warning-message">
+                Minimum Window Resolution: 1000x700
+            </div>
+            <div class="warning-message">
+                Please resize your window and refresh the game
+            </div>
+            <div class="warning-details">
+                Current Resolution: <span id="current-resolution"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- This ID is commonly used as a parent for Phaser.
+         If your game.js uses a parent config, it will dock here. -->
+    <div id="game-container"></div>
+
+    <!-- Resolution Check Script (runs before game loads) -->
+    <script>
+        const MIN_WIDTH = 1000;
+        const MIN_HEIGHT = 700;
+
+        function checkResolution() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const warning = document.getElementById('resolution-warning');
+            const currentRes = document.getElementById('current-resolution');
+
+            currentRes.textContent = `${width}x${height}`;
+
+            if (width < MIN_WIDTH || height < MIN_HEIGHT) {
+                warning.classList.add('active');
+                return false;
+            } else {
+                warning.classList.remove('active');
+                return true;
+            }
+        }
+
+        // Check on load
+        checkResolution();
+
+        // Also check on resize (optional - helps user know when they've resized enough)
+        window.addEventListener('resize', checkResolution);
+    </script>
+
+    <!-- Moving the script to the end ensures the container is ready -->
+    <script type="module" src="./js/game.js"></script> 
+
+    <script>
+        // Visual polish: Create background particles
+        const bg = document.getElementById('game-background');
+        for (let i = 0; i < 20; i++) {
+            const ember = document.createElement('div');
+            ember.className = 'ember';
+            ember.style.left = Math.random() * 100 + 'vw';
+            ember.style.animationDelay = (Math.random() * 20) + 's';
+            ember.style.opacity = Math.random();
+            bg.appendChild(ember);
+        }
+
+        // Health bar management
+        const MAX_HP = 20;
+        const SEGMENT_COUNT = 20; // Number of segments in the health bar
+
+        function initHealthBars() {
+            const healthBgLeft = document.getElementById('health-bg-left');
+            const healthBgRight = document.getElementById('health-bg-right');
+
+            // Create background segments (empty slots)
+            for (let i = 0; i < SEGMENT_COUNT; i++) {
+                const segmentLeft = document.createElement('div');
+                segmentLeft.className = 'health-segment-bg';
+                healthBgLeft.appendChild(segmentLeft);
+
+                const segmentRight = document.createElement('div');
+                segmentRight.className = 'health-segment-bg';
+                healthBgRight.appendChild(segmentRight);
+            }
+
+            // Initialize with full health
+            updateHealthBar('left', MAX_HP);
+            updateHealthBar('right', MAX_HP);
+        }
+
+        function updateHealthBar(side, currentHp) {
+            const fillContainer = document.getElementById(`health-fill-${side}`);
+            const hpLabel = document.getElementById(`hp-${side}`);
+
+            // Update HP label
+            hpLabel.textContent = Math.max(0, currentHp);
+
+            // Clear existing segments
+            fillContainer.innerHTML = '';
+
+            // Calculate how many segments to show
+            const segmentsToShow = Math.ceil((currentHp / MAX_HP) * SEGMENT_COUNT);
+
+            // Create active segments
+            for (let i = 0; i < segmentsToShow; i++) {
+                const segment = document.createElement('div');
+                segment.className = 'health-segment';
+
+                // Color coding based on position
+                const percentFromBottom = (i + 1) / SEGMENT_COUNT;
+                if (percentFromBottom <= 0.33) {
+                    segment.classList.add('low');
+                } else if (percentFromBottom <= 0.66) {
+                    segment.classList.add('medium');
+                } else {
+                    segment.classList.add('high');
+                }
+
+                fillContainer.appendChild(segment);
+            }
+
+            // Set height of fill container
+            const heightPercent = (currentHp / MAX_HP) * 100;
+            fillContainer.style.height = heightPercent + '%';
+        }
+
+        // Make updateHealthBar globally accessible for Phaser
+        window.updateHealthBar = updateHealthBar;
+
+        // Initialize health bars
+        initHealthBars();
+
+        // Position wizards and health bars relative to game grid
+        function positionWizards() {
+            const canvas = document.querySelector('canvas');
+            if (!canvas) {
+                // Canvas not ready yet, try again soon
+                setTimeout(positionWizards, 100);
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const wizardLeft = document.querySelector('.wizard-left');
+            const wizardRight = document.querySelector('.wizard-right');
+            const margin = 20; // Gap between board and wizards
+            const wizardWidth = 120;
+
+            if (wizardLeft && wizardRight && rect.width > 0) {
+                // Position left wizard to the left of the grid
+                // Left edge of wizard = canvas left edge - wizard width - margin
+                const leftPos = Math.max(10, rect.left - wizardWidth - margin);
+                wizardLeft.style.left = leftPos + 'px';
+
+                // Position right wizard to the right of the grid
+                // Distance from viewport right edge
+                const rightPos = Math.max(10, window.innerWidth - rect.right - wizardWidth - margin);
+                wizardRight.style.right = rightPos + 'px';
+
+                // Bottom position for both (align with canvas bottom)
+                const bottomPos = Math.max(20, window.innerHeight - rect.bottom);
+                wizardLeft.style.bottom = bottomPos + 'px';
+                wizardRight.style.bottom = bottomPos + 'px';
+
+                // Position health bars above wizards
+                const healthBarLeft = document.querySelector('.health-bar-left');
+                const healthBarRight = document.querySelector('.health-bar-right');
+
+                if (healthBarLeft && healthBarRight) {
+                    // Position health bars centered above their wizards
+                    healthBarLeft.style.left = (leftPos + wizardWidth / 2 - 15) + 'px'; // 15 = half of health bar width
+                    healthBarLeft.style.bottom = (bottomPos + 140) + 'px'; // 140px above wizard
+
+                    const rightPosFromLeft = window.innerWidth - rightPos - wizardWidth;
+                    healthBarRight.style.left = (rightPosFromLeft + wizardWidth / 2 - 15) + 'px';
+                    healthBarRight.style.bottom = (bottomPos + 140) + 'px';
+                }
+
+                console.log('Wizards positioned:', {
+                    canvasRect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height },
+                    leftPos,
+                    rightPos,
+                    bottomPos,
+                    windowSize: { width: window.innerWidth, height: window.innerHeight }
+                });
+            }
+        }
+
+        // Position wizards after a longer delay (wait for canvas to be fully sized)
+        setTimeout(positionWizards, 1000);
+
+        // Reposition on window resize
+        window.addEventListener('resize', () => {
+            setTimeout(positionWizards, 200);
+        });
+
+        // Spell casting effect in the background
+        setInterval(() => {
+            const isLeft = Math.random() > 0.5;
+            const spell = document.createElement('div');
+            spell.className = 'spell';
+            spell.style.backgroundColor = isLeft ? 'var(--wizard-left)' : 'var(--wizard-right)';
+            spell.style.boxShadow = `0 0 15px ${spell.style.backgroundColor}`;
+            spell.style.top = (40 + Math.random() * 20) + '%';
+            spell.style.left = isLeft ? '10%' : '90%';
+
+            bg.appendChild(spell);
+
+            const animation = spell.animate([
+                { left: isLeft ? '10%' : '90%', opacity: 1 },
+                { left: isLeft ? '100%' : '0%', opacity: 0 }
+            ], {
+                duration: 2500 + Math.random() * 1000,
+                easing: 'ease-in'
+            });
+
+            animation.onfinish = () => spell.remove();
+        }, 5000);
+    </script>
+</body>
+</html>
