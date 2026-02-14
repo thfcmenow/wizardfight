@@ -319,6 +319,39 @@ export function moveCursorToGrid(scene, gridPos) {
 }
 
 /**
+ * Show a spinning asterisk hit effect at a world position (Chaos-style melee impact)
+ */
+function showMeleeHitEffect(scene, x, y) {
+    const graphics = scene.add.graphics();
+    graphics.setDepth(20);
+
+    const radius = 28;
+    const numSpokes = 6;
+    const color = 0xffffff;
+
+    graphics.lineStyle(3, color, 1);
+    for (let i = 0; i < numSpokes; i++) {
+        const angle = (i / numSpokes) * Math.PI * 2;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        graphics.lineBetween(
+            x + cos * radius * 0.15, y + sin * radius * 0.15,
+            x + cos * radius, y + sin * radius
+        );
+    }
+
+    // Spin fast and fade out
+    scene.tweens.add({
+        targets: graphics,
+        angle: 360 * 4,
+        alpha: { from: 1, to: 0 },
+        duration: 700,
+        ease: 'Cubic.Out',
+        onComplete: () => { graphics.destroy(); }
+    });
+}
+
+/**
  * Execute a melee attack
  * @param {Phaser.Scene} scene - The game scene
  * @param {Object} defender - The defender piece data
@@ -331,6 +364,11 @@ export function executeMeleeAttack(scene, defender, onComplete) {
     console.log(`[executeMeleeAttack] Dealing ${damage} damage to ${defender.cat}`);
 
     playThud();
+
+    // Show spinning asterisk hit effect on the defender
+    if (defender && defender.piece && defender.piece.sprite) {
+        showMeleeHitEffect(scene, defender.piece.sprite.x, defender.piece.sprite.y);
+    }
 
     // Apply damage to defender
     if (defender && defender.piece && defender.piece.takeDamage) {
