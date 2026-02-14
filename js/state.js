@@ -26,7 +26,9 @@ export const state = {
     // Currently selected player for menu context
     selectedPlayerCat: null,
     // AI control for player 2
-    aiEnabled: true
+    aiEnabled: true,
+    // Help modal / pause state
+    isPaused: false
 };
 
 // Audio references (set during create)

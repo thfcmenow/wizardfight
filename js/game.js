@@ -66,6 +66,38 @@ function showMovementHint(scene) {
         });
     }
 
+    // "S - Select" bar spanning the width of the Z/X/C row
+    const barY = cy + ts * 0.5 + 36;
+    const barWidth = ts + 30;
+    const barHeight = 28;
+
+    const barBg = scene.add.graphics();
+    barBg.fillStyle(0x000000, 0.75);
+    barBg.fillRoundedRect(-barWidth / 2, -barHeight / 2, barWidth, barHeight, 5);
+    barBg.lineStyle(2, 0xffffff, 0.9);
+    barBg.strokeRoundedRect(-barWidth / 2, -barHeight / 2, barWidth, barHeight, 5);
+
+    const barText = scene.add.text(0, 1, 'S - Select', {
+        fontSize: '14px',
+        fontFamily: '"minecraft"',
+        fill: '#ffffff',
+    });
+    barText.setOrigin(0.5, 0.5);
+
+    const barContainer = scene.add.container(cx, barY, [barBg, barText]);
+    barContainer.setDepth(15);
+    containers.push(barContainer);
+
+    scene.tweens.add({
+        targets: barContainer,
+        y: barY - 7,
+        duration: 750,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: 200,
+    });
+
     // Fade out after 4 seconds then destroy
     scene.time.delayedCall(4000, () => {
         scene.tweens.add({
@@ -75,6 +107,167 @@ function showMovementHint(scene) {
             onComplete: () => containers.forEach(c => c.destroy()),
         });
     });
+}
+
+// Show the help / pause modal
+function showHelpModal(scene) {
+    if (state.isPaused) return;
+    state.isPaused = true;
+
+    const sw = scene.sys.game.canvas.width;
+    const sh = scene.sys.game.canvas.height;
+    const modalWidth = Math.min(500, sw - 60);
+    const modalHeight = Math.min(420, sh - 60);
+    const mx = sw / 2;
+    const my = sh / 2;
+
+    const elements = [];
+
+    // Dark overlay
+    const overlay = scene.add.graphics();
+    overlay.fillStyle(0x000000, 0.6);
+    overlay.fillRect(0, 0, sw, sh);
+    overlay.setDepth(30);
+    elements.push(overlay);
+
+    // Modal box
+    const modal = scene.add.graphics();
+    modal.fillStyle(0x111111, 0.97);
+    modal.fillRoundedRect(mx - modalWidth / 2, my - modalHeight / 2, modalWidth, modalHeight, 8);
+    modal.lineStyle(3, 0xffffff, 1);
+    modal.strokeRoundedRect(mx - modalWidth / 2, my - modalHeight / 2, modalWidth, modalHeight, 8);
+    modal.setDepth(31);
+    elements.push(modal);
+
+    // "- Paused -" title
+    const title = scene.add.text(mx, my - modalHeight / 2 + 28, '- Paused -', {
+        fontSize: '22px',
+        fontFamily: '"minecraft"',
+        fill: '#ffffff',
+    });
+    title.setOrigin(0.5, 0.5);
+    title.setDepth(32);
+    elements.push(title);
+
+    // Divider under title
+    const divider = scene.add.graphics();
+    divider.lineStyle(1, 0x888888, 0.8);
+    divider.lineBetween(
+        mx - modalWidth / 2 + 20, my - modalHeight / 2 + 52,
+        mx + modalWidth / 2 - 20, my - modalHeight / 2 + 52
+    );
+    divider.setDepth(32);
+    elements.push(divider);
+
+    // =============================================
+    // ADD HELP CONTENT HERE
+    // Each entry in helpLines is one row of text.
+    // Lines render from top of the content area (~75px below modal top)
+    // downward at 22px spacing, centered on mx.
+    // Font: 13px minecraft, color #cccccc.
+    // =============================================
+    const helpLines = [
+        "Welcome to WizardFight",
+        "Select your character with S or Space",
+        "Select Movement or Spell Casting",
+        "Use Arrow Keys or WASD to move one space",
+        "You can select one spell at a time",
+        "Warning: Some spells have limited range",
+        "Melee combat is available after movement",
+        "Version: 2026-02-14"
+        // === INSERT HELP TEXT HERE ===
+        // e.g. 'Arrow keys / WASD  -  Move cursor',
+        // e.g. 'S / Space          -  Select',
+        // e.g. '1                  -  Open spell menu',
+    ];
+
+    let lineY = my - modalHeight / 2 + 75;
+    for (const line of helpLines) {
+        const t = scene.add.text(mx, lineY, line, {
+            fontSize: '17px',
+            fontFamily: '"minecraft"',
+            fill: '#cccccc',
+        });
+        t.setOrigin(0.5, 0);
+        t.setDepth(32);
+        elements.push(t);
+        lineY += 22;
+    }
+
+    // "Return To Game" button
+    const btnW = 200;
+    const btnH = 36;
+    const btnX = mx;
+    const btnY = my + modalHeight / 2 - 36;
+
+    const btnBg = scene.add.graphics();
+    const drawBtn = (hover) => {
+        btnBg.clear();
+        btnBg.fillStyle(hover ? 0x444444 : 0x222222, 1);
+        btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 5);
+        btnBg.lineStyle(2, 0xffffff, hover ? 1 : 0.9);
+        btnBg.strokeRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 5);
+    };
+    drawBtn(false);
+    btnBg.setDepth(32);
+    elements.push(btnBg);
+
+    const btnText = scene.add.text(btnX, btnY, 'Return To Game', {
+        fontSize: '14px',
+        fontFamily: '"minecraft"',
+        fill: '#ffffff',
+    });
+    btnText.setOrigin(0.5, 0.5);
+    btnText.setDepth(33);
+    elements.push(btnText);
+
+    const btnZone = scene.add.zone(btnX, btnY, btnW, btnH);
+    btnZone.setDepth(34);
+    btnZone.setInteractive({ useHandCursor: true });
+    elements.push(btnZone);
+
+    const closeModal = () => {
+        elements.forEach(e => e.destroy());
+        state.isPaused = false;
+    };
+
+    btnZone.on('pointerdown', closeModal);
+    btnZone.on('pointerover', () => drawBtn(true));
+    btnZone.on('pointerout',  () => drawBtn(false));
+}
+
+// Create the persistent "?" help button in the top-right corner
+function createHelpButton(scene) {
+    const btnSize = 34;
+    const padding = 16;
+    const x = scene.sys.game.canvas.width - padding - btnSize / 2;
+    const y = padding + btnSize / 2;
+
+    const bg = scene.add.graphics();
+    const drawBg = (hover) => {
+        bg.clear();
+        bg.fillStyle(hover ? 0x333333 : 0x000000, hover ? 0.9 : 0.75);
+        bg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 5);
+        bg.lineStyle(2, 0xffffff, hover ? 1 : 0.9);
+        bg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 5);
+    };
+    drawBg(false);
+
+    const label = scene.add.text(0, 1, '?', {
+        fontSize: '18px',
+        fontFamily: '"minecraft"',
+        fill: '#ffffff',
+    });
+    label.setOrigin(0.5, 0.5);
+
+    const container = scene.add.container(x, y, [bg, label]);
+    container.setDepth(20);
+    container.setSize(btnSize, btnSize);
+    container.setInteractive({ useHandCursor: true });
+
+    container.on('pointerdown', () => showHelpModal(scene));
+    container.on('pointerover', () => drawBg(true));
+    container.on('pointerout',  () => drawBg(false));
 }
 
 // Exit targeting mode and restore cursor
@@ -102,7 +295,8 @@ const config = {
     },
     render: {
         transparent: true,
-        pixelArt: false // Add this as true if you're doing retro styles!
+        pixelArt: false, // Add this as true if you're doing retro styles!
+        resolution: window.devicePixelRatio || 1,
     },
     scene: {
         preload: preload,
@@ -150,6 +344,7 @@ function create() {
     state.casterPiece = null;
     state.turnDialogActive = false;
     state.currentMenuHandler = null;
+    state.isPaused = false;
 
     // Setup audio
     audio.menuclick = this.sound.add("menuclick", { loop: false });
@@ -253,6 +448,9 @@ function create() {
         C: Phaser.Input.Keyboard.KeyCodes.C,
     });
 
+    // Help button (top-right corner)
+    createHelpButton(this);
+
     // Show initial turn dialog
     showTurnDialog();
 
@@ -269,8 +467,9 @@ function create() {
 }
 
 async function update() {
-    // Block input while turn dialog is showing
+    // Block input while turn dialog is showing or help modal is open
     if (state.turnDialogActive) return;
+    if (state.isPaused) return;
 
     const cursors = this.input.keyboard.createCursorKeys();
     const keys = this.keys;
