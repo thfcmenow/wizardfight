@@ -11,6 +11,72 @@ import { initArrow } from './spells/arrow.js';
 import { castOffensiveSpell, createIceWall, executeMove } from './actions.js';
 import { Goblin } from './creatures/Goblin.js';
 
+// Show floating movement key hints around player 1 at game start
+function showMovementHint(scene) {
+    const player1Piece = scene.gameBoard.pieces.find(p => p.cat === 'player1');
+    if (!player1Piece) return;
+
+    const cx = state.gridToPixelX(player1Piece.x);
+    const cy = state.gridToPixelY(player1Piece.y);
+    const ts = state.tileSize;
+
+    const keys = [
+        { label: 'Q', dx: -1, dy: -1 },
+        { label: 'W', dx:  0, dy: -1 },
+        { label: 'E', dx:  1, dy: -1 },
+        { label: 'A', dx: -1, dy:  0 },
+        { label: 'D', dx:  1, dy:  0 },
+        { label: 'Z', dx: -1, dy:  1 },
+        { label: 'X', dx:  0, dy:  1 },
+        { label: 'C', dx:  1, dy:  1 },
+    ];
+
+    const containers = [];
+
+    for (const k of keys) {
+        const x = cx + k.dx * ts * 0.5;
+        const y = cy + k.dy * ts * 0.5;
+
+        const bg = scene.add.graphics();
+        bg.fillStyle(0x000000, 0.75);
+        bg.fillRoundedRect(-15, -15, 30, 30, 5);
+        bg.lineStyle(2, 0xffffff, 0.9);
+        bg.strokeRoundedRect(-15, -15, 30, 30, 5);
+
+        const text = scene.add.text(0, 1, k.label, {
+            fontSize: '16px',
+            fontFamily: '"minecraft"',
+            fill: '#ffffff',
+        });
+        text.setOrigin(0.5, 0.5);
+
+        const container = scene.add.container(x, y, [bg, text]);
+        container.setDepth(15);
+        containers.push(container);
+
+        // Each key bobs independently with a slight stagger
+        scene.tweens.add({
+            targets: container,
+            y: y - 7,
+            duration: 750,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+            delay: (keys.indexOf(k) / keys.length) * 400,
+        });
+    }
+
+    // Fade out after 4 seconds then destroy
+    scene.time.delayedCall(4000, () => {
+        scene.tweens.add({
+            targets: containers,
+            alpha: 0,
+            duration: 600,
+            onComplete: () => containers.forEach(c => c.destroy()),
+        });
+    });
+}
+
 // Exit targeting mode and restore cursor
 function exitTargetingMode(scene) {
     state.targetingMode = false;
@@ -189,6 +255,11 @@ function create() {
 
     // Show initial turn dialog
     showTurnDialog();
+
+    // Show movement key hints around player 1 after the opening dialog clears
+    this.time.delayedCall(1700, () => {
+        showMovementHint(this);
+    });
  
     // goblin test
     /* console.log("Adding goblin...");
