@@ -8,6 +8,7 @@ import {
     createIceWall,
     castShield,
     executeMove,
+    executeMeleeAttack,
     setCursorTintForSpell,
     clearCursorTint,
     moveCursorToGrid
@@ -362,6 +363,12 @@ export function executeAITurn() {
 
             if (move) {
                 doAIMove(aiWizard, move, gameBoard);
+            } else if (distance === 1) {
+                // Already adjacent - attempt melee attack directly
+                console.log("AI: Adjacent to player, attempting melee attack");
+                executeMeleeAttack(state.gameScene, playerWizard, () => {
+                    endTurn();
+                });
             } else {
                 // No valid moves - just end turn
                 console.log("AI: No valid moves available");
