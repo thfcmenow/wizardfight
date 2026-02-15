@@ -8,8 +8,7 @@ import { GameBoard } from './GameBoard.js';
 import { initMagicBolt } from './spells/bolt.js';
 import { initLightning } from './spells/lightning.js';
 import { initArrow } from './spells/arrow.js';
-import { castOffensiveSpell, createIceWall, executeMove } from './actions.js';
-import { Goblin } from './creatures/Goblin.js';
+import { castOffensiveSpell, createIceWall, summonGoblin, executeMove } from './actions.js';
 
 // Show floating movement key hints around player 1 at game start
 function showMovementHint(scene) {
@@ -345,6 +344,9 @@ function create() {
     state.turnDialogActive = false;
     state.currentMenuHandler = null;
     state.isPaused = false;
+    state.player1Goblins = [];
+    state.player2Goblins = [];
+    state.goblinMovementMode = false;
 
     // Setup audio
     audio.menuclick = this.sound.add("menuclick", { loop: false });
@@ -458,12 +460,6 @@ function create() {
     this.time.delayedCall(1700, () => {
         showMovementHint(this);
     });
- 
-    // goblin test
-    /*console.log("Adding goblin...");
-    let goblin = new Goblin(this, 5, 5,1.005);
-    this.gameBoard.addPiece(goblin, 5, 5, "goblin_right");*/
-
 }
 
 async function update() {
@@ -575,6 +571,27 @@ async function update() {
                     state.casterPiece.piece.markSpellUsed(currentSpell);
                 }
 
+                // Handle Summon Goblin (creates creature, no damage)
+                if (currentSpell === "Summon Goblin") {
+                    const success = summonGoblin(scene, { x: targetX, y: targetY }, state.currentPlayer, () => {
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        endTurn();
+                    });
+
+                    if (!success) {
+                        // Unmark the spell since it failed
+                        if (state.casterPiece && state.casterPiece.piece.usedSpells) {
+                            state.casterPiece.piece.usedSpells.delete(currentSpell);
+                        }
+                        // Stay in targeting mode so player can pick another square
+                        return;
+                    }
+
+                    state.targetingMode = false;
+                    return;
+                }
+
                 // Handle Ice Wall separately (creates obstacle, no damage)
                 if (currentSpell === "Ice Wall") {
                     const success = createIceWall(scene, { x: targetX, y: targetY }, () => {
@@ -684,6 +701,7 @@ async function update() {
         if (dx !== 0 || dy !== 0) {
             const moved = executeMove(this.gameBoard, state.selectedPiece, dx, dy, () => {
                 state.movementMode = false;
+                state.goblinMovementMode = false;
                 state.selectedPiece = null;
                 endTurn();
             });
@@ -697,6 +715,7 @@ async function update() {
         if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
             audio.menuclick.play();
             state.movementMode = false;
+            state.goblinMovementMode = false;
             state.selectedPiece = null;
             this.spaceKeyDown = true;
             console.log("Movement cancelled");

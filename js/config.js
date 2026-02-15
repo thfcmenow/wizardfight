@@ -87,7 +87,7 @@ const generatedSpellMenu = spells.map(spell => spell.name);
 // Menu definitions
 export const menus = {
     "player": {
-        "root": ["Cast Spell", "Move Character", "Examine Character"],
+        "root": ["Cast Spell", "Move Character", "Examine Character", "Control Goblin"],
         "spells": generatedSpellMenu  // Now dynamically generated from spells array
     },
     "player1": {

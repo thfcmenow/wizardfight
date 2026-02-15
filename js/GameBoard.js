@@ -222,18 +222,22 @@ export class GameBoard {
         return false;
     }
 
-    // Find an adjacent enemy wizard
+    // Find an adjacent enemy (wizard or goblin)
     // Returns the enemy piece data if found, null otherwise
     getAdjacentEnemy(pieceData) {
         const { x, y, cat } = pieceData;
 
-        // Determine which player this piece belongs to and who the enemy is
-        let isPlayer1 = cat === "player1";
-        let isPlayer2 = cat === "player2";
+        // Determine which side this piece belongs to
+        let ownerSide = null;
+        if (cat === "player1" || cat === "goblin_p1") ownerSide = 1;
+        else if (cat === "player2" || cat === "goblin_p2") ownerSide = 2;
 
-        if (!isPlayer1 && !isPlayer2) return null;
+        if (!ownerSide) return null;
 
-        const enemyCat = isPlayer1 ? "player2" : "player1";
+        // Enemy categories: opposing wizard and any opposing goblins
+        const enemyCats = ownerSide === 1
+            ? ["player2", "goblin_p2"]
+            : ["player1", "goblin_p1"];
 
         // Check all 8 adjacent squares
         for (let dx = -1; dx <= 1; dx++) {
@@ -245,11 +249,11 @@ export class GameBoard {
                 const adjY = y + dy;
 
                 const adjacent = this.pieces.find(p =>
-                    p.x === adjX && p.y === adjY && p.cat === enemyCat
+                    p.x === adjX && p.y === adjY && enemyCats.includes(p.cat)
                 );
 
                 if (adjacent) {
-                    console.log(`Adjacent enemy found! ${cat} at (${x}, ${y}) is adjacent to ${enemyCat} at (${adjX}, ${adjY})`);
+                    console.log(`Adjacent enemy found! ${cat} at (${x}, ${y}) is adjacent to ${adjacent.cat} at (${adjX}, ${adjY})`);
                     return adjacent;
                 }
             }

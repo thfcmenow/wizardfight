@@ -9,6 +9,15 @@ export function isCurrentPlayerPiece(cat) {
 
 export function endTurn() {
     console.log(`[endTurn] Current player: ${state.currentPlayer}, Switching to player ${state.currentPlayer === 1 ? 2 : 1}`);
+
+    // Reset hasActed for the current player's goblins before switching
+    const goblinArray = state.currentPlayer === 1 ? state.player1Goblins : state.player2Goblins;
+    for (const goblinEntry of goblinArray) {
+        if (goblinEntry.piece && goblinEntry.piece.hasActed !== undefined) {
+            goblinEntry.piece.hasActed = false;
+        }
+    }
+
     state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
     state.turnNumber++;
     console.log(`[endTurn] Turn ${state.turnNumber} - Player ${state.currentPlayer}'s turn`);

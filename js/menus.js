@@ -53,7 +53,14 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
             return (index + 1) + ": " + spellName + suffix + "\n";
         });
     } else {
-        thisMenu = menus[first][second].map((menu, index) => index + 1 + ": " + menu + "\n");
+        thisMenu = menus[first][second].map((menu, index) => {
+            let suffix = "";
+            if (menu === "Control Goblin") {
+                const goblinArray = state.currentPlayer === 1 ? state.player1Goblins : state.player2Goblins;
+                if (goblinArray.length === 0) suffix = " [NONE]";
+            }
+            return (index + 1) + ": " + menu + suffix + "\n";
+        });
     }
     let menuText = properCase(cat) + "\n" + thisMenu.join("") + "\nSpace: Cancel";
     let characterMenu = scene.add.text(x + 10, y + 10, menuText, {
@@ -191,7 +198,7 @@ export function handleMenuKeydown(event, menu, scene) {
             // Route based on spell type
             if (spell.type === "selfCast") {
                 castSelfSpell(scene, spell.name);
-            } else if (spell.type === "offensive" || spell.type === "utility") {
+            } else if (spell.type === "offensive" || spell.type === "utility" || spell.type === "creature") {
                 enterTargetingMode(scene, spell.name);
             } else {
                 console.error(`Unknown spell type: ${spell.type}`);
@@ -232,6 +239,40 @@ export function handleMenuKeydown(event, menu, scene) {
         let pos = renderMenu(true);
         const playerCat = state.selectedPlayerCat || "player1";
         renderMenu(false, playerCat, "bio", "bio", scene, pos.x, pos.y);
+        return;
+    }
+
+    if (keyPressed === "4") {
+        // Control Goblin - enter goblin movement mode
+        const goblinArray = state.currentPlayer === 1 ? state.player1Goblins : state.player2Goblins;
+
+        if (goblinArray.length === 0) {
+            audio.error.play();
+            console.log("No goblins to control!");
+            return;
+        }
+
+        renderMenu(true); // close menu
+
+        const goblinPiece = goblinArray[0]; // auto-select first goblin
+
+        // Move cursor to goblin position
+        const cursorData = scene.gameBoard.pieces.find(p => p.piece === "cursor");
+        if (cursorData) {
+            cursorData.x = goblinPiece.x;
+            cursorData.y = goblinPiece.y;
+        }
+        scene.cursor.x = state.gridToPixelX(goblinPiece.x);
+        scene.cursor.y = state.gridToPixelY(goblinPiece.y);
+
+        state.movementMode = true;
+        state.goblinMovementMode = true;
+        state.selectedPiece = goblinPiece;
+        state.isSelected = false;
+        state.keymonitor = false;
+        scene.cursorBlinkEvent.paused = false;
+
+        console.log("Goblin movement mode activated for:", goblinPiece);
         return;
     }
 }

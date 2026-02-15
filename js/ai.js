@@ -7,6 +7,7 @@ import {
     castOffensiveSpell,
     createIceWall,
     castShield,
+    summonGoblin,
     executeMove,
     executeMeleeAttack,
     setCursorTintForSpell,
@@ -310,6 +311,89 @@ function doAISpell(aiWizard, targetWizard, spellName) {
     );
 }
 
+// Find a free adjacent tile around a piece for goblin summoning
+function findSummonPosition(piece, gameBoard) {
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (dx === 0 && dy === 0) continue;
+
+            const x = piece.x + dx;
+            const y = piece.y + dy;
+
+            if (x < 1 || x > gameBoard.boardWidth || y < 1 || y > gameBoard.boardHeight) continue;
+            if (gameBoard.isTileDestroyed(x, y)) continue;
+
+            const occupied = gameBoard.pieces.find(p =>
+                p.x === x && p.y === y && p.piece !== "cursor"
+            );
+            if (occupied) continue;
+
+            return { x, y };
+        }
+    }
+    return null;
+}
+
+// Check if AI should summon a goblin
+function shouldSummonGoblin(aiWizard, gameBoard) {
+    if (state.player2Goblins.length > 0) return false;
+    if (aiWizard.piece.hasUsedSpell("Summon Goblin")) return false;
+    if (!getSpellByName("Summon Goblin")) return false;
+    return findSummonPosition(aiWizard, gameBoard) !== null;
+}
+
+// Execute AI goblin summon
+function doAISummonGoblin(aiWizard, gameBoard) {
+    const scene = state.gameScene;
+    const targetPos = findSummonPosition(aiWizard, gameBoard);
+
+    if (!targetPos) {
+        endTurn();
+        return;
+    }
+
+    console.log(`AI summoning Goblin at (${targetPos.x}, ${targetPos.y})`);
+    aiWizard.piece.markSpellUsed("Summon Goblin");
+
+    summonGoblin(scene, targetPos, 2, () => {
+        endTurn();
+    });
+}
+
+// Execute AI goblin turn: move toward player wizard and attack if adjacent
+function doAIGoblinTurn(goblinPiece, playerWizard, gameBoard) {
+    const scene = state.gameScene;
+    const distance = chebyshevDistance(goblinPiece.x, goblinPiece.y, playerWizard.x, playerWizard.y);
+
+    console.log(`AI goblin turn. Distance to player: ${distance}`);
+
+    if (distance === 1) {
+        // Already adjacent - attack directly
+        console.log("AI goblin: Adjacent to player, attacking");
+        executeMeleeAttack(scene, goblinPiece, playerWizard, () => {
+            endTurn();
+        });
+        return;
+    }
+
+    // Move toward player wizard
+    const move = getBestMoveDirection(
+        goblinPiece.x, goblinPiece.y,
+        playerWizard.x, playerWizard.y,
+        gameBoard
+    );
+
+    if (move) {
+        // executeMove handles adjacent enemy check + attack dialog (auto-attacks for AI)
+        executeMove(gameBoard, goblinPiece, move.dx, move.dy, () => {
+            endTurn();
+        });
+    } else {
+        console.log("AI goblin: No valid moves");
+        endTurn();
+    }
+}
+
 // Main AI turn execution
 export function executeAITurn() {
     if (!state.aiEnabled || state.currentPlayer !== 2) {
@@ -354,7 +438,20 @@ export function executeAITurn() {
                 return;
             }
 
-            // Move toward player
+            // Control existing goblin (move + attack)
+            if (state.player2Goblins.length > 0) {
+                const goblinPiece = state.player2Goblins[0];
+                doAIGoblinTurn(goblinPiece, playerWizard, gameBoard);
+                return;
+            }
+
+            // Summon a goblin if we don't have one
+            if (shouldSummonGoblin(aiWizard, gameBoard)) {
+                doAISummonGoblin(aiWizard, gameBoard);
+                return;
+            }
+
+            // Move wizard toward player
             const move = getBestMoveDirection(
                 aiWizard.x, aiWizard.y,
                 playerWizard.x, playerWizard.y,
@@ -366,7 +463,7 @@ export function executeAITurn() {
             } else if (distance === 1) {
                 // Already adjacent - attempt melee attack directly
                 console.log("AI: Adjacent to player, attempting melee attack");
-                executeMeleeAttack(state.gameScene, playerWizard, () => {
+                executeMeleeAttack(state.gameScene, aiWizard, playerWizard, () => {
                     endTurn();
                 });
             } else {
