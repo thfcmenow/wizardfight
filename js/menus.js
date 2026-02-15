@@ -21,7 +21,7 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
 
     // Create and display a new menu
     const menuWidth = 250;
-    const menuHeight = 200;
+    const menuHeight = 250;
     const screenWidth = scene.sys.game.canvas.width;
     const screenHeight = scene.sys.game.canvas.height;
 

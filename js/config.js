@@ -60,6 +60,14 @@ export const spells = [
         range: 5,
         createObstacle: true,
         color: 0x88ccff  // Light blue
+    },
+    {
+        name: "Summon Goblin",
+        menuKey: "6",
+        type: "creature",
+        range: 1,
+        createObstacle: false,
+        color: 0x88ccff  // Light blue
     }
 ];
 

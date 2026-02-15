@@ -460,7 +460,7 @@ function create() {
     });
  
     // goblin test
-    /* console.log("Adding goblin...");
+    /*console.log("Adding goblin...");
     let goblin = new Goblin(this, 5, 5,1.005);
     this.gameBoard.addPiece(goblin, 5, 5, "goblin_right");*/
 
