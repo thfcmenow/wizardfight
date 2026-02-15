@@ -15,9 +15,13 @@ export class Goblin {
         this.sprite.setScale(scale);
         this.sprite.setDepth(3);
 
-        // Goblin stats: 4 HP, 1-2 damage
+        // Goblin stats
         this.hp = 4;
         this.maxHp = 4;
+        this.minDamage = 1;
+        this.maxDamage = 2;
+        this.owner = null;
+        this.hasActed = false;
 
         console.log(`Goblin HP: ${this.hp}`);
 
@@ -31,6 +35,26 @@ export class Goblin {
             });
         }
         this.sprite.play('goblin_right');
+
+        // Persistent HP indicator below the sprite
+        this.hpText = scene.add.text(pixelX, pixelY + 35, `${this.hp}/${this.maxHp}`, {
+            fontFamily: 'minecraft',
+            fontSize: '12px',
+            color: '#00ff00',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        this.hpText.setOrigin(0.5);
+        this.hpText.setDepth(5);
+    }
+
+    // Update the persistent HP indicator text and color
+    updateHpDisplay() {
+        if (!this.hpText) return;
+        const color = this.hp <= 1 ? '#ff4444' : (this.hp <= 2 ? '#ffaa00' : '#00ff00');
+        this.hpText.setText(`${this.hp}/${this.maxHp}`);
+        this.hpText.setColor(color);
+        this.hpText.setPosition(this.sprite.x, this.sprite.y + 35);
     }
 
     // Show a text bubble above the goblin with hovering animation
@@ -110,6 +134,11 @@ export class Goblin {
 
         // Check if dead
         if (this.hp <= 0) {
+            // Destroy HP indicator
+            if (this.hpText) {
+                this.hpText.destroy();
+                this.hpText = null;
+            }
             // Show death animation
             this.scene.tweens.add({
                 targets: this.sprite,
@@ -123,6 +152,9 @@ export class Goblin {
             return true; // isDead
         }
 
+        // Update persistent HP display
+        this.updateHpDisplay();
+
         // After damage bubble, show new HP with color coding
         this.scene.time.delayedCall(1400, () => {
             const hpColor = this.hp <= 2 ? '#ff4444' : '#ffaa00';
@@ -132,8 +164,8 @@ export class Goblin {
         return false; // isAlive
     }
 
-    // Called by GameBoard when piece moves (empty for goblins)
+    // Called by GameBoard when piece moves - update HP indicator position
     onMove() {
-        // Goblins don't need shield updates like wizards
+        this.updateHpDisplay();
     }
 }

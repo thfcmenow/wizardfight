@@ -28,7 +28,11 @@ export const state = {
     // AI control for player 2
     aiEnabled: true,
     // Help modal / pause state
-    isPaused: false
+    isPaused: false,
+    // Creature tracking
+    player1Goblins: [],
+    player2Goblins: [],
+    goblinMovementMode: false
 };
 
 // Audio references (set during create)

@@ -10,6 +10,7 @@ import { playBolt } from './audiofx/bolt.js';
 import { playLightningSound } from './audiofx/lightning.js';
 import { playThud } from './audiofx/thud.js';
 import { IceWall } from './IceWall.js';
+import { Goblin } from './creatures/Goblin.js';
 import { gridToPixel } from './utils.js';
 import { showGameEndDialog, showAttackDialog } from './turn.js';
 
@@ -83,7 +84,17 @@ export function castOffensiveSpell(scene, casterPos, targetPos, spellName, onCom
             if (isDead) {
                 console.log(`${targetPiece.cat} has been defeated!`);
 
-                // Determine winning player
+                // Goblin death: remove from board, continue play
+                if (targetPiece.cat.startsWith("goblin_")) {
+                    removeDeadGoblin(gameBoard, targetPiece);
+                    playThud();
+                    scene.time.delayedCall(3500, () => {
+                        if (onComplete) onComplete();
+                    });
+                    return;
+                }
+
+                // Wizard death: game ends
                 const defeatedPlayerNum = targetPiece.cat === "player1" ? 1 : 2;
                 const winnerPlayerNum = defeatedPlayerNum === 1 ? 2 : 1;
 
@@ -204,6 +215,58 @@ export function createIceWall(scene, targetPos, onComplete) {
 }
 
 /**
+ * Summon a Goblin at the target position
+ * @param {Phaser.Scene} scene - The game scene
+ * @param {Object} targetPos - {x, y} grid position for the goblin
+ * @param {number} ownerPlayer - 1 or 2, the player who owns this goblin
+ * @param {Function} onComplete - Callback when summoning completes
+ * @returns {boolean} - True if goblin was summoned, false if position was invalid
+ */
+export function summonGoblin(scene, targetPos, ownerPlayer, onComplete) {
+    const gameBoard = scene.gameBoard;
+
+    // Check if tile is destroyed
+    if (gameBoard.isTileDestroyed(targetPos.x, targetPos.y)) {
+        audio.error.play();
+        console.log("Can't summon on a destroyed tile!");
+        return false;
+    }
+
+    // Check if target square is already occupied
+    const occupied = gameBoard.pieces.find(p =>
+        p.x === targetPos.x && p.y === targetPos.y && p.piece !== "cursor"
+    );
+
+    if (occupied) {
+        audio.error.play();
+        console.log("Can't summon on an occupied square!");
+        return false;
+    }
+
+    // Create the goblin
+    const goblin = new Goblin(scene, targetPos.x, targetPos.y);
+    goblin.owner = ownerPlayer;
+
+    const cat = `goblin_p${ownerPlayer}`;
+    gameBoard.addPiece(goblin, targetPos.x, targetPos.y, cat);
+
+    // Track in state
+    const pieceEntry = gameBoard.pieces.find(p => p.piece === goblin);
+    const goblinArray = ownerPlayer === 1 ? state.player1Goblins : state.player2Goblins;
+    goblinArray.push(pieceEntry);
+
+    console.log(`Goblin summoned at (${targetPos.x}, ${targetPos.y}) for player ${ownerPlayer}`);
+    audio.menuclick.play();
+
+    // Call completion callback after brief delay
+    scene.time.delayedCall(500, () => {
+        if (onComplete) onComplete();
+    });
+
+    return true;
+}
+
+/**
  * Cast Shield on a wizard
  * @param {Phaser.Scene} scene - The game scene
  * @param {Object} wizard - The wizard piece to shield
@@ -262,7 +325,7 @@ export function executeMove(gameBoard, pieceData, dx, dy, onComplete) {
                     adjacentEnemy,
                     // onYes - attack the enemy
                     () => {
-                        executeMeleeAttack(scene, adjacentEnemy, onComplete);
+                        executeMeleeAttack(scene, pieceData, adjacentEnemy, onComplete);
                     },
                     // onNo - skip attack
                     () => {
@@ -352,16 +415,37 @@ function showMeleeHitEffect(scene, x, y) {
 }
 
 /**
+ * Remove a dead goblin from the board and state tracking arrays
+ * @param {GameBoard} gameBoard - The game board
+ * @param {Object} pieceEntry - The goblin's piece entry from gameBoard.pieces
+ */
+function removeDeadGoblin(gameBoard, pieceEntry) {
+    gameBoard.removePiece(pieceEntry.piece);
+    const ownerNum = pieceEntry.cat === "goblin_p1" ? 1 : 2;
+    const goblinArray = ownerNum === 1 ? state.player1Goblins : state.player2Goblins;
+    const idx = goblinArray.indexOf(pieceEntry);
+    if (idx !== -1) goblinArray.splice(idx, 1);
+    console.log(`Goblin removed from player ${ownerNum}'s army`);
+}
+
+/**
  * Execute a melee attack
  * @param {Phaser.Scene} scene - The game scene
+ * @param {Object} attacker - The attacker piece data (used for damage range)
  * @param {Object} defender - The defender piece data
  * @param {Function} onComplete - Callback when attack completes
  */
-export function executeMeleeAttack(scene, defender, onComplete) {
-    // Calculate random damage between 1 and 3
-    const damage = Math.floor(Math.random() * 3) + 1;
+export function executeMeleeAttack(scene, attacker, defender, onComplete) {
+    // Use attacker's damage stats if available, otherwise default 1-3
+    let minDmg = 1;
+    let maxDmg = 3;
+    if (attacker && attacker.piece && attacker.piece.minDamage !== undefined) {
+        minDmg = attacker.piece.minDamage;
+        maxDmg = attacker.piece.maxDamage;
+    }
+    const damage = Math.floor(Math.random() * (maxDmg - minDmg + 1)) + minDmg;
 
-    console.log(`[executeMeleeAttack] Dealing ${damage} damage to ${defender.cat}`);
+    console.log(`[executeMeleeAttack] ${attacker.cat} dealing ${damage} damage to ${defender.cat}`);
 
     playThud();
 
@@ -377,7 +461,16 @@ export function executeMeleeAttack(scene, defender, onComplete) {
         if (isDead) {
             console.log(`${defender.cat} has been defeated!`);
 
-            // Determine winning player
+            // Goblin death: remove from board, don't end game
+            if (defender.cat.startsWith("goblin_")) {
+                removeDeadGoblin(scene.gameBoard, defender);
+                scene.time.delayedCall(3500, () => {
+                    if (onComplete) onComplete();
+                });
+                return;
+            }
+
+            // Wizard death: game ends
             const defeatedPlayerNum = defender.cat === "player1" ? 1 : 2;
             const winnerPlayerNum = defeatedPlayerNum === 1 ? 2 : 1;
 
