@@ -12,8 +12,8 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
     // If a destroy flag is set, destroy the last menu if it exists
     if (destroy && menuInstances.length) {
         const lastMenuInstance = menuInstances.pop();
-        lastMenuInstance.graphics.destroy();
-        lastMenuInstance.text.destroy();
+        if (lastMenuInstance.graphics) lastMenuInstance.graphics.destroy();
+        if (lastMenuInstance.text) lastMenuInstance.text.destroy();
         x = state.lastx;
         y = state.lasty;
         if (window.hideTouchMenu) window.hideTouchMenu();
@@ -21,27 +21,28 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
     }
 
     // Create and display a new menu
-    const menuWidth = 280;
-    const menuHeight = 280;
-    const screenWidth = scene.sys.game.canvas.width;
-    const screenHeight = scene.sys.game.canvas.height;
+    // const menuWidth = 280;
+    // const menuHeight = 280;
+    // const screenWidth = scene.sys.game.canvas.width;
+    // const screenHeight = scene.sys.game.canvas.height;
 
     // Adjust position if menu would go off-screen
-    if (x + menuWidth > screenWidth) {
-        x = x - menuWidth - state.tileSize;
-    }
-    if (y + menuHeight > screenHeight) {
-        y = y - menuHeight;
-    }
+    // if (x + menuWidth > screenWidth) {
+    //     x = x - menuWidth - state.tileSize;
+    // }
+    // if (y + menuHeight > screenHeight) {
+    //     y = y - menuHeight;
+    // }
 
-    let graphics = scene.add.graphics();
-    graphics.setDepth(6);
-    graphics.fillStyle(0x000000, 0.8);
-    graphics.fillRect(x, y, menuWidth, menuHeight);
-    graphics.lineStyle(2, 0xffffff, 1);
-    graphics.strokeRect(x, y, menuWidth, menuHeight);
+    // Bubble popup disabled - bottom touch menu used instead
+    // let graphics = scene.add.graphics();
+    // graphics.setDepth(6);
+    // graphics.fillStyle(0x000000, 0.8);
+    // graphics.fillRect(x, y, menuWidth, menuHeight);
+    // graphics.lineStyle(2, 0xffffff, 1);
+    // graphics.strokeRect(x, y, menuWidth, menuHeight);
+    // graphics.setVisible(true);
 
-    graphics.setVisible(true);
     state.lastMenu = cat;
 
     // For spells menu, show which spells are used
@@ -63,16 +64,17 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
             return (index + 1) + ": " + menu + suffix + "\n";
         });
     }
-    let menuText = properCase(cat) + "\n" + thisMenu.join("") + "\nSpace: Cancel";
-    let characterMenu = scene.add.text(x + 10, y + 10, menuText, {
-        fill: '#ffffff',
-        fontSize: 20,
-        fontFamily: '"minecraft"'
-    });
-    characterMenu.setDepth(8);
-    characterMenu.setVisible(true);
+    // Bubble popup disabled - bottom touch menu used instead
+    // let menuText = properCase(cat) + "\n" + thisMenu.join("") + "\nSpace: Cancel";
+    // let characterMenu = scene.add.text(x + 10, y + 10, menuText, {
+    //     fill: '#ffffff',
+    //     fontSize: 20,
+    //     fontFamily: '"minecraft"'
+    // });
+    // characterMenu.setDepth(8);
+    // characterMenu.setVisible(true);
 
-    menuInstances.push({ graphics, text: characterMenu });
+    menuInstances.push({ graphics: null, text: null });
 
     if (window.showTouchMenu) window.showTouchMenu(thisMenu);
 

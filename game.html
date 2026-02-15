@@ -437,7 +437,7 @@ https://creativecommons.org/licenses/by/3.0/
                 const btn = document.createElement('button');
                 btn.className = 'touch-menu-btn' + (label.includes('[USED]') ? ' touch-menu-used' : '');
                 // Strip the "N: " prefix and trailing newline that renderMenu adds
-                btn.textContent = label.replace(/^\d+:\s*/, '').replace('\n', '').trim();
+                btn.textContent = label.replace('\n', '').trim();
                 btn.addEventListener('touchend', (e) => {
                     e.preventDefault();
                     document.dispatchEvent(new KeyboardEvent('keydown', { key: String(i + 1), bubbles: true }));

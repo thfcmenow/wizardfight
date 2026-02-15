@@ -13,6 +13,18 @@ import { castOffensiveSpell, createIceWall, summonGoblin, executeMove } from './
 // debugging
 import { showMeleeHitEffect } from './actions.js';
 
+// Helper function to convert screen coordinates to grid coordinates
+function screenToGrid(px, py) {
+    // Ensure state and tileSize are accessible
+    // state.offsetX and state.offsetY are already calculated in create()
+    const scene = state.gameScene;
+    // Calculate gridX and gridY based on screen coordinates, offset, and tile size
+    const gridX = ((px - state.offsetX - (state.tileSize / 2)) / state.tileSize) + 1;
+    const gridY = ((py - state.offsetY - (state.tileSize / 2)) / state.tileSize) + 1;
+    // Round to nearest integer for grid coordinates
+    return { x: Math.round(gridX), y: Math.round(gridY) };
+}
+
 // Show floating movement key hints around player 1 at game start
 function showMovementHint(scene) {
     const player1Piece = scene.gameBoard.pieces.find(p => p.cat === 'player1');
@@ -24,7 +36,7 @@ function showMovementHint(scene) {
 
     const keys = [
         { label: 'Q', dx: -1, dy: -1 },
-        { label: 'W', dx:  0, dy: -1 },
+        { key: 'W', dx:  0, dy: -1 },
         { label: 'E', dx:  1, dy: -1 },
         { label: 'A', dx: -1, dy:  0 },
         { label: 'D', dx:  1, dy:  0 },
@@ -456,20 +468,46 @@ function create() {
     });
 
     // Swipe detection for touch devices
+    const holdDurationThreshold = 300; // ms
+
     this.input.on('pointerdown', (pointer) => {
         this._swipeStartX = pointer.x;
         this._swipeStartY = pointer.y;
+        // Record start time for hold detection
+        state.holdStartTime = this.time.now;
+        // Reset gesture type and clear previous swipe for new gesture
+        state.gestureType = null;
+        state.swipeDirection = null;
     });
     this.input.on('pointerup', (pointer) => {
+        // Calculate hold duration
+        const holdDuration = this.time.now - state.holdStartTime;
         const dx = pointer.x - this._swipeStartX;
         const dy = pointer.y - this._swipeStartY;
         const minSwipe = 40;
-        if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) { state.tapPressed = true; return; }
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            state.swipeDirection = dx > 0 ? 'right' : 'left';
+
+        // Determine gesture type
+        if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) {
+            // It's either a tap or a hold
+            if (holdDuration < holdDurationThreshold) {
+                state.gestureType = 'tap';
+                // Store tap coordinates
+                state.tapX = pointer.x;
+                state.tapY = pointer.y;
+            } else {
+                state.gestureType = 'hold';
+            }
         } else {
-            state.swipeDirection = dy > 0 ? 'down' : 'up';
+            // It's a swipe
+            state.gestureType = 'swipe';
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                state.swipeDirection = dx > 0 ? 'right' : 'left';
+            } else {
+                state.swipeDirection = dy > 0 ? 'down' : 'up';
+            }
         }
+        // Reset hold start time after gesture is processed
+        state.holdStartTime = null;
     });
 
     // Help button (top-right corner)
@@ -581,10 +619,105 @@ async function update() {
             }
         }
 
-        // Confirm target with Space, S, or tap
-        if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
+        // TAP in targeting mode: jump cursor to tapped position AND fire spell immediately
+        if (state.gestureType === 'tap' && state.tapX !== null) {
+            const tappedGrid = screenToGrid(state.tapX, state.tapY);
+            state.tapX = null;
+            state.tapY = null;
+            state.gestureType = null;
+
+            const distX = Math.abs(tappedGrid.x - state.casterX);
+            const distY = Math.abs(tappedGrid.y - state.casterY);
+            const distance = Math.max(distX, distY);
+            const inBounds = tappedGrid.x >= 1 && tappedGrid.x <= state.bx &&
+                             tappedGrid.y >= 1 && tappedGrid.y <= state.by;
+
+            if (distance === 0) {
+                audio.error.play();
+                console.log("Can't target yourself!");
+            } else if (!inBounds || distance > state.targetingRange) {
+                audio.error.play();
+                console.log("Target out of range!");
+            } else {
+                // Move cursor to tapped position
+                const cursorPos = this.gameBoard.reportCursor();
+                const deltaX = tappedGrid.x - cursorPos.x;
+                const deltaY = tappedGrid.y - cursorPos.y;
+                this.cursor.x = state.gridToPixelX(tappedGrid.x);
+                this.cursor.y = state.gridToPixelY(tappedGrid.y);
+                if (deltaX !== 0) this.gameBoard.alterCursor("x", deltaX);
+                if (deltaY !== 0) this.gameBoard.alterCursor("y", deltaY);
+
+                // Fire the spell
+                audio.menuclick.play();
+                this.cursor.clearTint();
+
+                const tapScene = this;
+                const tapTargetX = tappedGrid.x;
+                const tapTargetY = tappedGrid.y;
+                const tapSpell = state.targetingSpell;
+
+                if (state.casterPiece && state.casterPiece.piece.markSpellUsed) {
+                    state.casterPiece.piece.markSpellUsed(tapSpell);
+                }
+
+                if (tapSpell === "Summon Goblin") {
+                    const success = summonGoblin(tapScene, { x: tapTargetX, y: tapTargetY }, state.currentPlayer, () => {
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        endTurn();
+                    });
+                    if (!success) {
+                        if (state.casterPiece && state.casterPiece.piece.usedSpells) {
+                            state.casterPiece.piece.usedSpells.delete(tapSpell);
+                        }
+                        return;
+                    }
+                    state.targetingMode = false;
+                    return;
+                }
+
+                if (tapSpell === "Ice Wall") {
+                    const success = createIceWall(tapScene, { x: tapTargetX, y: tapTargetY }, () => {
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        endTurn();
+                    });
+                    if (!success) {
+                        if (state.casterPiece && state.casterPiece.piece.usedSpells) {
+                            state.casterPiece.piece.usedSpells.delete(tapSpell);
+                        }
+                        state.targetingMode = false;
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        return;
+                    }
+                    state.targetingMode = false;
+                    return;
+                }
+
+                castOffensiveSpell(
+                    tapScene,
+                    { x: state.casterX, y: state.casterY },
+                    { x: tapTargetX, y: tapTargetY },
+                    tapSpell,
+                    () => {
+                        state.casterPiece = null;
+                        state.targetingSpell = null;
+                        endTurn();
+                    }
+                );
+
+                state.targetingMode = false;
+            }
+        }
+
+        // Confirm target with Space, S, or HOLD TAP
+        if ((cursors.space.isDown || keys.S.isDown || state.gestureType === 'hold') && !this.spaceKeyDown) {
+            audio.menuclick.play();
             this.spaceKeyDown = true;
-            state.tapPressed = false;
+            state.gestureType = null; // Consume the hold gesture
+
             const cursorPos = this.gameBoard.reportCursor();
 
             // Calculate distance to confirm it's in range
@@ -594,10 +727,6 @@ async function update() {
 
             if (distance > 0 && distance <= state.targetingRange) {
                 // Fire the spell!
-                audio.menuclick.play();
-
-                console.log(`Casting ${state.targetingSpell} from (${state.casterX}, ${state.casterY}) to (${cursorPos.x}, ${cursorPos.y})`);
-
                 // Restore cursor immediately
                 this.cursor.clearTint();
 
@@ -606,8 +735,6 @@ async function update() {
                 const targetX = cursorPos.x;
                 const targetY = cursorPos.y;
                 const currentSpell = state.targetingSpell;
-
-                
 
                 // Mark spell as used
                 if (state.casterPiece && state.casterPiece.piece.markSpellUsed) {
@@ -691,6 +818,7 @@ async function update() {
             audio.menuclick.play();
             exitTargetingMode(this);
             console.log("Targeting cancelled");
+            state.gestureType = null; // Consume the hold gesture if it was active
         } else if (escKey.isUp) {
             this.escKeyDown = false;
         }
@@ -754,19 +882,55 @@ async function update() {
             }
         }
 
-        // Cancel movement mode with space, S, or tap
-        if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
+        // Cancel movement mode with space, S, or HOLD TAP
+        if ((cursors.space.isDown || keys.S.isDown || state.gestureType === 'hold') && !this.spaceKeyDown) {
             audio.menuclick.play();
             state.movementMode = false;
             state.goblinMovementMode = false;
             state.selectedPiece = null;
             this.spaceKeyDown = true;
-            state.tapPressed = false;
+            state.gestureType = null; // Consume the hold gesture
             console.log("Movement cancelled");
         } else if (cursors.space.isUp && keys.S.isUp) {
             this.spaceKeyDown = false;
         }
         return;
+    }
+
+    // Handle Tap gesture (Selection)
+    if (state.gestureType === 'tap') {
+        if (state.tapX !== null && state.tapY !== null) {
+            const gridPos = screenToGrid(state.tapX, state.tapY);
+
+            // Calculate cursor movement delta
+            const currentCursorGridPos = this.gameBoard.reportCursor();
+            const diffX = gridPos.x - currentCursorGridPos.x;
+            const diffY = gridPos.y - currentCursorGridPos.y;
+
+            // Move cursor visually and update its internal grid position
+            this.cursor.x = state.gridToPixelX(gridPos.x);
+            this.cursor.y = state.gridToPixelY(gridPos.y);
+            if (diffX !== 0) this.gameBoard.alterCursor("x", diffX);
+            if (diffY !== 0) this.gameBoard.alterCursor("y", diffY);
+            audio.menuclick.play(); // Sound for cursor movement
+
+            // If not in a mode that requires confirmation (hold), a tap should select the square/piece.
+            // This includes selecting a piece, or just moving the cursor to an empty tile.
+            // The `state.isSelected` state should be managed by `gameBoard.selectBox`.
+            // We call selectBox if we are not in a mode that overrides selection.
+            if (!state.movementMode && !state.targetingMode && !state.spellsMode && !state.isPaused) {
+                 // Attempt to select the piece/tile at the new cursor location.
+                 // `selectBox` is expected to handle updating `state.isSelected` if it selects a piece.
+                 this.gameBoard.selectBox(this.cursor.x, this.cursor.y); // Pixel coords for selectBox
+            }
+            // If in movement or targeting mode, a tap just moves the cursor; confirmation is via hold.
+
+            // Clear stored tap coordinates
+            state.tapX = null;
+            state.tapY = null;
+        }
+        // Consume the tap gesture
+        state.gestureType = null;
     }
 
     // Swipe cursor movement
@@ -866,12 +1030,12 @@ async function update() {
         }
     }
 
-    // Space, S, or tap - select/deselect
-    if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
+    // Space, S, or HOLD TAP - select/deselect
+    if ((cursors.space.isDown || keys.S.isDown || state.gestureType === 'hold') && !this.spaceKeyDown) {
         audio.menuclick.play();
-        state.isSelected = !state.isSelected;
         this.spaceKeyDown = true;
-        state.tapPressed = false;
+        state.gestureType = null; // Consume the hold gesture
+
         if (state.isSelected) {
             let proceed = this.gameBoard.selectBox(this.cursor.x, this.cursor.y);
             this.cursor.visible = true;
