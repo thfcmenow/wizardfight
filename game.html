@@ -307,6 +307,53 @@ https://creativecommons.org/licenses/by/3.0/
             font-size: 14px;
             margin-top: 20px;
         }
+
+        /* Touch Menu Bar */
+        #touch-menu {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 8px 6px;
+            background: rgba(0, 0, 0, 0.88);
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #touch-menu.active {
+            display: flex;
+        }
+
+        .touch-menu-btn {
+            font-family: 'minecraft', sans-serif;
+            font-size: 14px;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            padding: 10px 14px;
+            min-height: 44px;
+            cursor: pointer;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+
+        .touch-menu-btn:active {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .touch-menu-btn.touch-menu-cancel {
+            border-color: rgba(255, 100, 100, 0.5);
+            color: #ff9999;
+        }
+
+        .touch-menu-btn.touch-menu-used {
+            opacity: 0.4;
+        }
     </style>
     
     <script>
@@ -357,12 +404,15 @@ https://creativecommons.org/licenses/by/3.0/
         </div>
     </div>
 
+    <!-- Touch Menu Bar (shown when a menu is open) -->
+    <div id="touch-menu"></div>
+
     <!-- Resolution Warning Overlay -->
     <div id="resolution-warning">
         <div class="warning-box">
             <div class="warning-title">⚠️ Resolution Too Small</div>
             <div class="warning-message">
-                Minimum Window Resolution: 1000x700
+                Minimum Window Resolution: 374x374
             </div>
             <div class="warning-message">
                 Please resize your window and refresh the game
@@ -377,10 +427,45 @@ https://creativecommons.org/licenses/by/3.0/
          If your game.js uses a parent config, it will dock here. -->
     <div id="game-container"></div>
 
+    <!-- Touch Menu Functions -->
+    <script>
+        window.showTouchMenu = function(labels) {
+            const bar = document.getElementById('touch-menu');
+            bar.innerHTML = '';
+
+            labels.forEach((label, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'touch-menu-btn' + (label.includes('[USED]') ? ' touch-menu-used' : '');
+                // Strip the "N: " prefix and trailing newline that renderMenu adds
+                btn.textContent = label.replace(/^\d+:\s*/, '').replace('\n', '').trim();
+                btn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    document.dispatchEvent(new KeyboardEvent('keydown', { key: String(i + 1), bubbles: true }));
+                });
+                bar.appendChild(btn);
+            });
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'touch-menu-btn touch-menu-cancel';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+            });
+            bar.appendChild(cancelBtn);
+
+            bar.classList.add('active');
+        };
+
+        window.hideTouchMenu = function() {
+            document.getElementById('touch-menu').classList.remove('active');
+        };
+    </script>
+
     <!-- Resolution Check Script (runs before game loads) -->
     <script>
-        const MIN_WIDTH = 1000;
-        const MIN_HEIGHT = 700;
+        const MIN_WIDTH = 374;
+        const MIN_HEIGHT = 374;
 
         function checkResolution() {
             const width = window.innerWidth;

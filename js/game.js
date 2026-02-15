@@ -455,6 +455,23 @@ function create() {
         C: Phaser.Input.Keyboard.KeyCodes.C,
     });
 
+    // Swipe detection for touch devices
+    this.input.on('pointerdown', (pointer) => {
+        this._swipeStartX = pointer.x;
+        this._swipeStartY = pointer.y;
+    });
+    this.input.on('pointerup', (pointer) => {
+        const dx = pointer.x - this._swipeStartX;
+        const dy = pointer.y - this._swipeStartY;
+        const minSwipe = 40;
+        if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) { state.tapPressed = true; return; }
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            state.swipeDirection = dx > 0 ? 'right' : 'left';
+        } else {
+            state.swipeDirection = dy > 0 ? 'down' : 'up';
+        }
+    });
+
     // Help button (top-right corner)
     createHelpButton(this);
 
@@ -482,10 +499,21 @@ async function update() {
     const cursors = this.input.keyboard.createCursorKeys();
     const keys = this.keys;
 
+    // Consume pending swipe as a one-shot dx/dy
+    let swipeDx = 0;
+    let swipeDy = 0;
+    if (state.swipeDirection) {
+        if (state.swipeDirection === 'left')  swipeDx = -1;
+        if (state.swipeDirection === 'right') swipeDx =  1;
+        if (state.swipeDirection === 'up')    swipeDy = -1;
+        if (state.swipeDirection === 'down')  swipeDy =  1;
+        state.swipeDirection = null;
+    }
+
     // Targeting mode - select target for spell
     if (state.targetingMode) {
-        let dx = 0;
-        let dy = 0;
+        let dx = swipeDx;
+        let dy = swipeDy;
 
         if (cursors.left.isDown && !this.targetLeftKeyDown) {
             dx = -1;
@@ -553,9 +581,10 @@ async function update() {
             }
         }
 
-        // Confirm target with Space or S
-        if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
+        // Confirm target with Space, S, or tap
+        if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
             this.spaceKeyDown = true;
+            state.tapPressed = false;
             const cursorPos = this.gameBoard.reportCursor();
 
             // Calculate distance to confirm it's in range
@@ -671,8 +700,8 @@ async function update() {
 
     // Movement mode - move the selected piece
     if (state.movementMode && state.selectedPiece) {
-        let dx = 0;
-        let dy = 0;
+        let dx = swipeDx;
+        let dy = swipeDy;
 
         if (cursors.left.isDown && !this.moveLeftKeyDown) {
             dx = -1;
@@ -725,18 +754,35 @@ async function update() {
             }
         }
 
-        // Cancel movement mode with space or S
-        if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
+        // Cancel movement mode with space, S, or tap
+        if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
             audio.menuclick.play();
             state.movementMode = false;
             state.goblinMovementMode = false;
             state.selectedPiece = null;
             this.spaceKeyDown = true;
+            state.tapPressed = false;
             console.log("Movement cancelled");
         } else if (cursors.space.isUp && keys.S.isUp) {
             this.spaceKeyDown = false;
         }
         return;
+    }
+
+    // Swipe cursor movement
+    if ((swipeDx !== 0 || swipeDy !== 0) && !state.isSelected) {
+        const pos = this.gameBoard.reportCursor();
+        const newX = pos.x + swipeDx;
+        const newY = pos.y + swipeDy;
+        if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
+            this.cursor.x += swipeDx * state.tileSize;
+            this.cursor.y += swipeDy * state.tileSize;
+            this.gameBoard.alterCursor("x", swipeDx);
+            this.gameBoard.alterCursor("y", swipeDy);
+            audio.menuclick.play();
+        } else {
+            audio.error.play();
+        }
     }
 
     // Cursor movement
@@ -820,11 +866,12 @@ async function update() {
         }
     }
 
-    // Space or S - select/deselect
-    if ((cursors.space.isDown || keys.S.isDown) && !this.spaceKeyDown) {
+    // Space, S, or tap - select/deselect
+    if ((cursors.space.isDown || keys.S.isDown || state.tapPressed) && !this.spaceKeyDown) {
         audio.menuclick.play();
         state.isSelected = !state.isSelected;
         this.spaceKeyDown = true;
+        state.tapPressed = false;
         if (state.isSelected) {
             let proceed = this.gameBoard.selectBox(this.cursor.x, this.cursor.y);
             this.cursor.visible = true;

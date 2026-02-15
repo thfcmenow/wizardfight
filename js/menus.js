@@ -16,6 +16,7 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
         lastMenuInstance.text.destroy();
         x = state.lastx;
         y = state.lasty;
+        if (window.hideTouchMenu) window.hideTouchMenu();
         return { x, y };
     }
 
@@ -72,6 +73,8 @@ export function renderMenu(destroy, first, second, cat, scene, x, y, toggle) {
     characterMenu.setVisible(true);
 
     menuInstances.push({ graphics, text: characterMenu });
+
+    if (window.showTouchMenu) window.showTouchMenu(thisMenu);
 
     state.lastx = x;
     state.lasty = y;

@@ -32,7 +32,10 @@ export const state = {
     // Creature tracking
     player1Goblins: [],
     player2Goblins: [],
-    goblinMovementMode: false
+    goblinMovementMode: false,
+    // Swipe input from touch events
+    swipeDirection: null,
+    tapPressed: false
 };
 
 // Audio references (set during create)
