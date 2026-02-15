@@ -119,7 +119,7 @@ function showHelpModal(scene) {
     const sw = scene.sys.game.canvas.width;
     const sh = scene.sys.game.canvas.height;
     const modalWidth = Math.min(500, sw - 60);
-    const modalHeight = Math.min(420, sh - 60);
+    const modalHeight = Math.min(500, sh - 60);
     const mx = sw / 2;
     const my = sh / 2;
 
@@ -170,17 +170,19 @@ function showHelpModal(scene) {
     // =============================================
     const helpLines = [
         "Welcome to WizardFight",
-        "Select your character with S or Space",
-        "Select Movement or Spell Casting",
-        "Use Arrow Keys or WASD to move one space",
+        "-",
         "You can select one spell at a time",
         "Warning: Some spells have limited range",
         "Melee combat is available after movement",
-        "Version: 2026-02-14"
-        // === INSERT HELP TEXT HERE ===
-        // e.g. 'Arrow keys / WASD  -  Move cursor',
-        // e.g. 'S / Space          -  Select',
-        // e.g. '1                  -  Open spell menu',
+        "-",
+        "Arrow keys / WASD  -  Move cursor",
+        'S / Space -  Select',
+        '1  -  Open spell menu',
+        '2  -  Open movement menu',
+        '3  -  Examine character',
+        '4  -  Control goblin (if you have one)',
+        "-",
+        "Version: 2026-02-15",
     ];
 
     let lineY = my - modalHeight / 2 + 75;
