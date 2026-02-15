@@ -35,7 +35,11 @@ export const state = {
     goblinMovementMode: false,
     // Swipe input from touch events
     swipeDirection: null,
-    tapPressed: false
+    // New properties for touch gesture differentiation
+    holdStartTime: null,
+    gestureType: null, // 'tap', 'hold', 'swipe'
+    tapX: null, // Stores X coordinate of a tap
+    tapY: null, // Stores Y coordinate of a tap
 };
 
 // Audio references (set during create)
