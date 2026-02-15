@@ -10,6 +10,9 @@ import { initLightning } from './spells/lightning.js';
 import { initArrow } from './spells/arrow.js';
 import { castOffensiveSpell, createIceWall, summonGoblin, executeMove } from './actions.js';
 
+// debugging
+import { showMeleeHitEffect } from './actions.js';
+
 // Show floating movement key hints around player 1 at game start
 function showMovementHint(scene) {
     const player1Piece = scene.gameBoard.pieces.find(p => p.cat === 'player1');
@@ -460,6 +463,13 @@ function create() {
     this.time.delayedCall(1700, () => {
         showMovementHint(this);
     });
+
+    // debugging: show melee hit effect at center of grid after 1 seconds
+    console.log("TEST: testMeleeEffect() will show a melee hit effect");
+    window.testMeleeEffect = () => {
+        showMeleeHitEffect(this, 450, 405); 
+    }
+
 }
 
 async function update() {
@@ -565,6 +575,8 @@ async function update() {
                 const targetX = cursorPos.x;
                 const targetY = cursorPos.y;
                 const currentSpell = state.targetingSpell;
+
+                
 
                 // Mark spell as used
                 if (state.casterPiece && state.casterPiece.piece.markSpellUsed) {

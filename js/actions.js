@@ -384,32 +384,40 @@ export function moveCursorToGrid(scene, gridPos) {
 /**
  * Show a spinning asterisk hit effect at a world position (Chaos-style melee impact)
  */
-function showMeleeHitEffect(scene, x, y) {
+export function showMeleeHitEffect(scene, x, y) {
     const graphics = scene.add.graphics();
+    graphics.setPosition(x, y);
     graphics.setDepth(20);
+    
+    // Randomize initial rotation for variety
+    graphics.setAngle(Math.random() * 360);
 
-    const radius = 28;
-    const numSpokes = 6;
+    const radius = 35; // Slightly larger for "longer" feel
+    const numSpokes = 8; // More spokes = more visual "chaos"
     const color = 0xffffff;
 
-    graphics.lineStyle(3, color, 1);
+    // 1. Draw a central core "flash"
+    graphics.fillStyle(color, 1);
+    graphics.fillCircle(0, 0, 6);
+
+    // 2. Draw the spokes
+    graphics.lineStyle(4, color, 1);
     for (let i = 0; i < numSpokes; i++) {
         const angle = (i / numSpokes) * Math.PI * 2;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
         graphics.lineBetween(
-            x + cos * radius * 0.15, y + sin * radius * 0.15,
-            x + cos * radius, y + sin * radius
+            Math.cos(angle) * radius * 0.2, Math.sin(angle) * radius * 0.2,
+            Math.cos(angle) * radius, Math.sin(angle) * radius
         );
     }
 
-    // Spin fast and fade out
+    // 3. The "Punchy" Animation Loop
     scene.tweens.add({
         targets: graphics,
-        angle: 360 * 4,
-        alpha: { from: 1, to: 0 },
-        duration: 700,
-        ease: 'Cubic.Out',
+        angle: '+=1080',          // 3 full spins
+        scale: { from: 0, to: 1.5 }, // Massive expansion
+        alpha: { from: 1, to: 0.5 }, // Fade out slightly
+        duration: 2000,           // Longer duration (1 second)
+        ease: 'Back.out',         // "Back" ease gives it that snappy overshoot
         onComplete: () => { graphics.destroy(); }
     });
 }
