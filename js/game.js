@@ -36,7 +36,7 @@ function showMovementHint(scene) {
 
     const keys = [
         { label: 'Q', dx: -1, dy: -1 },
-        { key: 'W', dx:  0, dy: -1 },
+        { label: 'W', dx:  0, dy: -1 },
         { label: 'E', dx:  1, dy: -1 },
         { label: 'A', dx: -1, dy:  0 },
         { label: 'D', dx:  1, dy:  0 },
@@ -516,10 +516,13 @@ function create() {
     // Show initial turn dialog
     showTurnDialog();
 
-    // Show movement key hints around player 1 after the opening dialog clears
-    this.time.delayedCall(1700, () => {
-        showMovementHint(this);
-    });
+    // Show movement key hints around player 1 after the opening dialog clears (desktop only)
+    const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isMobile) {
+        this.time.delayedCall(1700, () => {
+            showMovementHint(this);
+        });
+    }
 
     // debugging: show melee hit effect at center of grid after 1 seconds
     console.log("TEST: testMeleeEffect() will show a melee hit effect");

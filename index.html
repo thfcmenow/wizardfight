@@ -19,10 +19,29 @@
         canvas {
             display: block;
         }
+        #fullscreen-banner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.85);
+            border-bottom: 1px solid #b08aff;
+            color: #fff;
+            font-family: 'Cinzel', serif;
+            font-size: 15px;
+            text-align: center;
+            padding: 14px 20px;
+            cursor: pointer;
+            letter-spacing: 0.05em;
+        }
+        #fullscreen-banner span {
+            color: #b08aff;
+        }
     </style>
 </head>
 <body>
 
+<div id="fullscreen-banner"></div>
 <canvas id="canvas"></canvas>
 
 <script>
@@ -79,23 +98,20 @@
     }
 
     // Input Handling
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && gameState === 'title_screen') {
+    function startGame() {
+        if (gameState === 'title_screen') {
             gameState = 'teleporting';
-            
-            // --- YOUR LINK LOGIC GOES HERE ---
-            console.log("Linking to game...");
-            
-            // Example redirection (commented out so you can see the effect in preview):
-            // window.location.href = 'game.html'; 
-            
-            // For the demo, we just fade out
-            setTimeout(() => {
-                // Simulate page load/transition
-                // window.location.reload(); 
-            }, 1000);
         }
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') startGame();
     });
+
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startGame();
+    }, { passive: false });
 
     // Animation Loop
     function animate() {
@@ -191,7 +207,7 @@
                 const blink = (Math.sin(time * 5) + 1) / 2; 
                 ctx.fillStyle = `rgba(200, 200, 200, ${blink * titleAlpha})`;
                 
-                ctx.fillText("PRESS SPACE BAR TO PLAY", width / 2, height / 2 + 80);
+                ctx.fillText("TAP SCREEN  OR  PRESS SPACE TO PLAY", width / 2, height / 2 + 80);
                 ctx.restore();
             }
 
@@ -221,6 +237,47 @@
 
     // Start
     animate();
+
+    // --- Fullscreen Prompt (mobile only) ---
+    (function () {
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const banner = document.getElementById('fullscreen-banner');
+
+        if (!isMobile) return;
+
+        if (isIOS) {
+            // iOS Safari doesn't support requestFullscreen for web pages
+            banner.innerHTML = 'For the best experience: tap <span>Share ⬆</span> then <span>"Add to Home Screen"</span>';
+            banner.style.display = 'block';
+            // Dismiss on tap
+            banner.addEventListener('touchstart', () => {
+                banner.style.display = 'none';
+            }, { passive: true });
+        } else {
+            // Android / other mobile - Fullscreen API supported
+            const canFullscreen = document.documentElement.requestFullscreen
+                || document.documentElement.webkitRequestFullscreen;
+
+            if (!canFullscreen) return;
+
+            banner.innerHTML = '&#x26A1; Tap here to enable <span>Full Screen</span> &#x26A1;';
+            banner.style.display = 'block';
+
+            banner.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen();
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            }, { passive: false });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    banner.style.display = 'none';
+                }
+            });
+        }
+    })();
 
 </script>
 </body>
