@@ -9,6 +9,7 @@ import { initMagicBolt } from './spells/bolt.js';
 import { initLightning } from './spells/lightning.js';
 import { initArrow } from './spells/arrow.js';
 import { castOffensiveSpell, createIceWall, summonGoblin, executeMove } from './actions.js';
+import { boardFlipIn } from './utils.js';
 
 // debugging
 import { showMeleeHitEffect } from './actions.js';
@@ -301,6 +302,11 @@ function exitTargetingMode(scene) {
 }
 
 function adjustGridAndPieces(scene) {
+    // Guard: bail out if the game board hasn't been created yet (e.g. resize
+    // event fires from the Scale Manager during a scene restart before create()
+    // has had a chance to initialise it).
+    if (!scene.gameBoard) return;
+
     // Calculate dynamic tile size to fit fixed grid
     const marginX = 100;  // Total margin left/right
     const marginY = 100;  // Total margin top/bottom
@@ -346,15 +352,18 @@ function adjustGridAndPieces(scene) {
 
     // Update piece positions and scales
     for (const pieceData of scene.gameBoard.pieces) {
-        if (pieceData.piece !== "cursor") { // Don't move the conceptual cursor piece, only its sprite
-            pieceData.piece.sprite.x = state.gridToPixelX(pieceData.x);
-            pieceData.piece.sprite.y = state.gridToPixelY(pieceData.y);
-            // Adjust sprite scale based on new tile size, relative to 90px base tile size
-            pieceData.piece.sprite.setScale(spriteScale * (state.tileSize / 90)); 
-            // Also update any HP bubbles or other attached visuals for the piece
-            if (pieceData.piece.updateVisuals) {
-                pieceData.piece.updateVisuals();
-            }
+        // Skip the conceptual cursor entry and any pieces whose sprites have
+        // been destroyed (can happen when a resize fires mid-restart).
+        if (pieceData.piece === "cursor") continue;
+        if (!pieceData.piece.sprite || !pieceData.piece.sprite.active) continue;
+
+        pieceData.piece.sprite.x = state.gridToPixelX(pieceData.x);
+        pieceData.piece.sprite.y = state.gridToPixelY(pieceData.y);
+        // Adjust sprite scale based on new tile size, relative to 90px base tile size
+        pieceData.piece.sprite.setScale(spriteScale * (state.tileSize / 90));
+        // Also update any HP bubbles or other attached visuals for the piece
+        if (pieceData.piece.updateVisuals) {
+            pieceData.piece.updateVisuals();
         }
     }
 }
@@ -394,6 +403,9 @@ function preload() {
 }
 
 function create() {
+    // Flip the board in from edge-on — plays on first load and after every restart
+    boardFlipIn(this.sys.game.canvas);
+
     state.gameScene = this;
 
     // Listen for resize events from the Phaser Scale Manager

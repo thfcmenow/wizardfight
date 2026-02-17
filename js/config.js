@@ -1,6 +1,6 @@
 // Grid and display settings
-export const gridWidth = 7;
-export const gridHeight = 6;
+export const gridWidth = 7
+export const gridHeight = 5
 export const tileSize = 90;
 export const minTileSize = 50;  // Minimum tile size (enforces minimum resolution)
 export const maxTileSize = 450; // Maximum tile size

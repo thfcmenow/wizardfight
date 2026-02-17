@@ -2,6 +2,7 @@
 import { state } from './state.js';
 import { executeAITurn } from './ai.js';
 import { audio } from './state.js';
+import { boardFlipOut } from './utils.js';
 
 export function isCurrentPlayerPiece(cat) {
     return cat === `player${state.currentPlayer}`;
@@ -118,11 +119,14 @@ export function showGameEndDialog(winnerPlayer) {
     text.setOrigin(0.5, 0.5);
     text.setDepth(11);
 
-    // Restart after 3 seconds
+    // After 3 seconds, flip the board away then restart
     state.gameScene.time.delayedCall(3000, () => {
         graphics.destroy();
         text.destroy();
-        state.gameScene.scene.restart();
+        const canvas = state.gameScene.sys.game.canvas;
+        boardFlipOut(canvas, () => {
+            state.gameScene.scene.restart();
+        });
     });
 }
 
@@ -167,14 +171,47 @@ export function showAttackDialog(attacker, defender, onYes, onNo) {
     text.setOrigin(0.5, 0.5);
     text.setDepth(11);
 
-    // Create Y/N hint text
-    let hintText = state.gameScene.add.text(screenWidth / 2, screenHeight / 2 + 35, "Y / N", {
-        fill: '#cccccc',
-        fontSize: 16,
-        fontFamily: '"minecraft"'
-    });
-    hintText.setOrigin(0.5, 0.5);
-    hintText.setDepth(11);
+    // Build Yes / No buttons
+    const scene = state.gameScene;
+    const btnW = 90;
+    const btnH = 40;
+    const btnY = screenHeight / 2 + 38;
+    const gap = 20;
+    const yesBtnX = screenWidth / 2 - btnW / 2 - gap / 2;
+    const noBtnX  = screenWidth / 2 + btnW / 2 + gap / 2;
+
+    const makeBtn = (cx, label, color) => {
+        const bg = scene.add.graphics();
+        const draw = (hover) => {
+            bg.clear();
+            bg.fillStyle(hover ? 0x444444 : 0x111111, 0.95);
+            bg.fillRoundedRect(cx - btnW / 2, btnY - btnH / 2, btnW, btnH, 6);
+            bg.lineStyle(2, color, 1);
+            bg.strokeRoundedRect(cx - btnW / 2, btnY - btnH / 2, btnW, btnH, 6);
+        };
+        draw(false);
+        bg.setDepth(11);
+
+        const txt = scene.add.text(cx, btnY, label, {
+            fill: '#ffffff',
+            fontSize: 18,
+            fontFamily: '"minecraft"'
+        });
+        txt.setOrigin(0.5, 0.5);
+        txt.setDepth(12);
+
+        const zone = scene.add.zone(cx, btnY, btnW, btnH);
+        zone.setDepth(13);
+        zone.setInteractive({ useHandCursor: true });
+
+        zone.on('pointerover', () => draw(true));
+        zone.on('pointerout',  () => draw(false));
+
+        return { bg, txt, zone, draw };
+    };
+
+    const yesBtn = makeBtn(yesBtnX, 'Yes (Y)', 0x66ff66);
+    const noBtn  = makeBtn(noBtnX,  'No  (N)', 0xff6666);
 
     // Store the auto-dismiss timeout so we can cancel it
     let autoDismissEvent = null;
@@ -184,15 +221,31 @@ export function showAttackDialog(attacker, defender, onYes, onNo) {
             dialogDismissed = true;
             graphics.destroy();
             text.destroy();
-            hintText.destroy();
+            yesBtn.bg.destroy();
+            yesBtn.txt.destroy();
+            yesBtn.zone.destroy();
+            noBtn.bg.destroy();
+            noBtn.txt.destroy();
+            noBtn.zone.destroy();
             state.turnDialogActive = false;
             document.removeEventListener("keydown", keyHandler);
-            // Cancel the auto-dismiss timeout if it hasn't fired yet
             if (autoDismissEvent) {
                 autoDismissEvent.remove();
             }
         }
     };
+
+    yesBtn.zone.on('pointerdown', () => {
+        cleanup();
+        audio.menuclick.play();
+        if (onYes) onYes();
+    });
+
+    noBtn.zone.on('pointerdown', () => {
+        cleanup();
+        audio.menuclick.play();
+        if (onNo) onNo();
+    });
 
     const keyHandler = (event) => {
         if (dialogDismissed) return;
