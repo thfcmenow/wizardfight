@@ -1,5 +1,5 @@
 // Main game file
-import { gridWidth, gridHeight, minTileSize, maxTileSize, cursorScale } from './config.js';
+import { gridWidth, gridHeight, minTileSize, maxTileSize, cursorScale, spriteScale } from './config.js';
 import { state, audio } from './state.js';
 import { showTurnDialog } from './turn.js';
 import { endTurn } from './turn.js';
@@ -300,6 +300,65 @@ function exitTargetingMode(scene) {
     audio.gamemusic.play();
 }
 
+function adjustGridAndPieces(scene) {
+    // Calculate dynamic tile size to fit fixed grid
+    const marginX = 100;  // Total margin left/right
+    const marginY = 100;  // Total margin top/bottom
+    const availableWidth = scene.sys.game.canvas.width - marginX;
+    const availableHeight = scene.sys.game.canvas.height - marginY;
+    const maxTileWidth = Math.floor(availableWidth / gridWidth);
+    const maxTileHeight = Math.floor(availableHeight / gridHeight);
+    const calculatedTileSize = Math.min(maxTileWidth, maxTileHeight);
+    state.tileSize = Math.max(Math.min(calculatedTileSize, maxTileSize), minTileSize);
+
+    // Calculate centering offsets so the grid is centered on screen
+    const canvasWidth = scene.sys.game.canvas.width;
+    const canvasHeight = scene.sys.game.canvas.height;
+    const gridPixelWidth = gridWidth * state.tileSize;
+    const gridPixelHeight = gridHeight * state.tileSize;
+    state.offsetX = Math.floor((canvasWidth - gridPixelWidth) / 2);
+    state.offsetY = Math.floor((canvasHeight - gridPixelHeight) / 2);
+
+    // Helper: convert grid position (1-indexed) to pixel center
+    state.gridToPixelX = (gx) => state.offsetX + (gx - 1) * state.tileSize + (state.tileSize / 2);
+    state.gridToPixelY = (gy) => state.offsetY + (gy - 1) * state.tileSize + (state.tileSize / 2);
+
+    // Update cursor position and scale
+    if (scene.cursor) {
+        const cursorPos = scene.gameBoard.reportCursor();
+        scene.cursor.x = state.gridToPixelX(cursorPos.x);
+        scene.cursor.y = state.gridToPixelY(cursorPos.y);
+        scene.cursor.setScale(cursorScale * (state.tileSize / 90)); // Adjust cursor scale relative to a base tileSize
+    }
+
+    // Update grid tiles
+    for (let y = 1; y <= gridHeight; y++) {
+        for (let x = 1; x <= gridWidth; x++) {
+            const tileKey = `${x},${y}`;
+            const tile = scene.gameBoard.tileSprites[tileKey];
+            if (tile) {
+                tile.x = state.gridToPixelX(x);
+                tile.y = state.gridToPixelY(y);
+                tile.setDisplaySize(state.tileSize, state.tileSize);
+            }
+        }
+    }
+
+    // Update piece positions and scales
+    for (const pieceData of scene.gameBoard.pieces) {
+        if (pieceData.piece !== "cursor") { // Don't move the conceptual cursor piece, only its sprite
+            pieceData.piece.sprite.x = state.gridToPixelX(pieceData.x);
+            pieceData.piece.sprite.y = state.gridToPixelY(pieceData.y);
+            // Adjust sprite scale based on new tile size, relative to 90px base tile size
+            pieceData.piece.sprite.setScale(spriteScale * (state.tileSize / 90)); 
+            // Also update any HP bubbles or other attached visuals for the piece
+            if (pieceData.piece.updateVisuals) {
+                pieceData.piece.updateVisuals();
+            }
+        }
+    }
+}
+
 const config = {
     type: Phaser.AUTO,
     width: 800, // Becomes the "base" resolution
@@ -337,17 +396,9 @@ function preload() {
 function create() {
     state.gameScene = this;
 
-    // Calculate dynamic tile size to fit fixed 15x10 grid
-    const marginX = 100;  // Total margin left/right
-    const marginY = 100;  // Total margin top/bottom
-    const availableWidth = this.sys.game.canvas.width - marginX;
-    const availableHeight = this.sys.game.canvas.height - marginY;
-    const maxTileWidth = Math.floor(availableWidth / gridWidth);
-    const maxTileHeight = Math.floor(availableHeight / gridHeight);
-    const calculatedTileSize = Math.min(maxTileWidth, maxTileHeight);
-    state.tileSize = Math.max(Math.min(calculatedTileSize, maxTileSize), minTileSize);
+    // Listen for resize events from the Phaser Scale Manager
+    this.scale.on('resize', () => adjustGridAndPieces(this));
 
-    // Reset game state for new game
     state.currentPlayer = 1;
     state.turnNumber = 1;
     state.movementMode = false;
@@ -369,33 +420,18 @@ function create() {
     audio.menuclick = this.sound.add("menuclick", { loop: false });
     audio.error = this.sound.add("error", { loop: false });
     audio.gamemusic = this.sound.add("gamemusic", { loop: true });
-    audio.gamemusic.setVolume(0.4);
+    audio.gamemusic.setVolume(0.4);    
     audio.gamemusic.play();    
     audio.actionmusic = this.sound.add("actionmusic", { loop: true });
     audio.actionmusic.setVolume(0.4);
 
-    // Calculate centering offsets so the grid is centered on screen
-    // Grid pixel formula: offset + (gridPos - 1) * tileSize + tileSize / 2
-    // Grid spans exactly gridWidth * tileSize pixels wide, gridHeight * tileSize tall
-    const canvasWidth = this.sys.game.canvas.width;
-    const canvasHeight = this.sys.game.canvas.height;
-    const gridPixelWidth = gridWidth * state.tileSize;
-    const gridPixelHeight = gridHeight * state.tileSize;
-    state.offsetX = Math.floor((canvasWidth - gridPixelWidth) / 2);
-    state.offsetY = Math.floor((canvasHeight - gridPixelHeight) / 2);
+    // Create game board first so we can store tile references
+    this.gameBoard = new GameBoard(this, gridWidth, gridHeight);
 
-    // Helper: convert grid position (1-indexed) to pixel center
-    // Store on state so other modules can use it
-    state.gridToPixelX = (gx) => state.offsetX + (gx - 1) * state.tileSize + (state.tileSize / 2);
-    state.gridToPixelY = (gy) => state.offsetY + (gy - 1) * state.tileSize + (state.tileSize / 2);
-
-    // Setup cursor at grid position (1, 1)
+    // Initial setup of cursor (will be adjusted by adjustGridAndPieces)
     this.cursor = this.add.image(0, 0, 'cursor');
     this.cursor.setOrigin(0.5, 0.5);
-    this.cursor.setScale(cursorScale);
     this.cursor.setDepth(4);
-    this.cursor.x = state.gridToPixelX(1);
-    this.cursor.y = state.gridToPixelY(1);
 
     this.cursorBlinkEvent = this.time.addEvent({
         delay: 500,
@@ -407,37 +443,31 @@ function create() {
     });
     this.cursorBlinkEvent.paused = false;
 
-    // Create game board first so we can store tile references
-    this.gameBoard = new GameBoard(this, gridWidth, gridHeight);
-
     // Create the grid tiles (fixed 15x10 with dynamic tile size), centered on screen
     for (let y = 1; y <= gridHeight; y++) {
         for (let x = 1; x <= gridWidth; x++) {
             const tile = this.add.image(
-                state.gridToPixelX(x),
-                state.gridToPixelY(y),
+                0, 0, // Initial position doesn't matter, adjustGridAndPieces will set it
                 'tile'
             );
             tile.setDepth(2);
-            tile.setDisplaySize(state.tileSize, state.tileSize);
-
             // Store tile sprite reference in gameBoard for later destruction effects
             const tileKey = `${x},${y}`;
             this.gameBoard.tileSprites[tileKey] = tile;
-
-            state.bx = x;
-            state.by = y;
         }
     }
+
+    // Call the adjustment function to calculate sizes and offsets BEFORE adding pieces
+    adjustGridAndPieces(this);
 
     let whiteWizard = new Wizard(this, 2, 2, 'white_wizard', 1, 1); // Player 1 (left health bar)
     this.gameBoard.addPiece(whiteWizard, 1, 1, "player1");
 
     let cartoonWizard = new Wizard(this, 2, 2, 'cartoon_wizard', 1, 2); // Player 2 (right health bar)
-    this.gameBoard.addPiece(cartoonWizard, state.bx, state.by, "player2");
+    this.gameBoard.addPiece(cartoonWizard, gridWidth, gridHeight, "player2");
 
     this.gameBoard.setupCursor();
-    this.gameBoard.setupBoardDimensions(state.bx, state.by);
+    this.gameBoard.setupBoardDimensions(gridWidth, gridHeight);
 
     console.log(this.gameBoard);
 
@@ -453,6 +483,10 @@ function create() {
     this.time.delayedCall(800, () => {
         cartoonWizard.showHp();
     });
+
+    // Call the new adjustment function after all elements are created
+    
+
 
     // WASD + diagonal keys (Q/E/Z/C) + S as space
     this.keys = this.input.keyboard.addKeys({
@@ -606,7 +640,7 @@ async function update() {
             const distance = Math.max(distX, distY); // Chebyshev distance (allows diagonal)
 
             // Check bounds
-            if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
+            if (newX >= 1 && newX <= gridWidth && newY >= 1 && newY <= gridHeight) {
                 if (distance <= state.targetingRange) {
                     this.cursor.x += dx * state.tileSize;
                     this.cursor.y += dy * state.tileSize;
@@ -632,8 +666,8 @@ async function update() {
             const distX = Math.abs(tappedGrid.x - state.casterX);
             const distY = Math.abs(tappedGrid.y - state.casterY);
             const distance = Math.max(distX, distY);
-            const inBounds = tappedGrid.x >= 1 && tappedGrid.x <= state.bx &&
-                             tappedGrid.y >= 1 && tappedGrid.y <= state.by;
+            const inBounds = tappedGrid.x >= 1 && tappedGrid.x <= gridWidth &&
+                             tappedGrid.y >= 1 && tappedGrid.y <= gridHeight;
 
             if (distance === 0) {
                 audio.error.play();
@@ -941,7 +975,7 @@ async function update() {
         const pos = this.gameBoard.reportCursor();
         const newX = pos.x + swipeDx;
         const newY = pos.y + swipeDy;
-        if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
+        if (newX >= 1 && newX <= gridWidth && newY >= 1 && newY <= gridHeight) {
             this.cursor.x += swipeDx * state.tileSize;
             this.cursor.y += swipeDy * state.tileSize;
             this.gameBoard.alterCursor("x", swipeDx);
@@ -968,7 +1002,7 @@ async function update() {
 
     if (cursors.right.isDown && !this.rightKeyDown && !state.isSelected) {
         const pos = this.gameBoard.reportCursor();
-        if (pos.x + 1 === state.bx + 1) {
+        if (pos.x + 1 === gridWidth + 1) {
             audio.error.play();
             return false;
         }
@@ -994,7 +1028,7 @@ async function update() {
 
     if (cursors.down.isDown && !this.downKeyDown && !state.isSelected) {
         const pos = this.gameBoard.reportCursor();
-        if (pos.y + 1 === state.by + 1) {
+        if (pos.y + 1 === gridHeight + 1) {
             audio.error.play();
             return false;
         }
@@ -1018,7 +1052,7 @@ async function update() {
                 const pos = this.gameBoard.reportCursor();
                 const newX = pos.x + dx;
                 const newY = pos.y + dy;
-                if (newX >= 1 && newX <= state.bx && newY >= 1 && newY <= state.by) {
+                if (newX >= 1 && newX <= gridWidth && newY >= 1 && newY <= gridHeight) {
                     this.cursor.x += dx * state.tileSize;
                     this.cursor.y += dy * state.tileSize;
                     if (dx !== 0) this.gameBoard.alterCursor("x", dx);

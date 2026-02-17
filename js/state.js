@@ -1,7 +1,6 @@
 // Game state - mutable values that change during gameplay
 export const state = {
-    bx: 0,
-    by: 0,
+
     isSelected: false,
     keymonitor: false,
     lastx: 0,
