@@ -354,6 +354,26 @@ https://creativecommons.org/licenses/by/3.0/
         .touch-menu-btn.touch-menu-used {
             opacity: 0.4;
         }
+
+        /* Fullscreen banner style */
+        #fullscreen-banner {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 10001; /* Above all other game elements */
+            background: rgba(0, 0, 0, 0.85);
+            border-bottom: 1px solid #b08aff;
+            color: #fff;
+            font-family: 'minecraft', sans-serif; /* Using existing game font */
+            font-size: 15px;
+            text-align: center;
+            padding: 14px 20px;
+            cursor: pointer;
+            letter-spacing: 0.05em;
+        }
+        #fullscreen-banner span {
+            color: #b08aff;
+        }
     </style>
     
     <script>
@@ -363,6 +383,8 @@ https://creativecommons.org/licenses/by/3.0/
     <script src="./engine/phaser.min.js"></script>
 </head>
 <body>
+
+    <div id="fullscreen-banner"></div>
 
     <div id="game-background">
         <!-- Parallax layers -->
@@ -657,6 +679,49 @@ https://creativecommons.org/licenses/by/3.0/
 
             animation.onfinish = () => spell.remove();
         }, 5000);
+    </script>
+
+    <!-- Fullscreen Prompt (mobile only) -->
+    <script>
+    (function () {
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const banner = document.getElementById('fullscreen-banner');
+
+        if (!isMobile) return;
+
+        if (isIOS) {
+            // iOS Safari doesn\'t support requestFullscreen for web pages
+            banner.innerHTML = 'For the best experience: tap <span>Share ⬆</span> then <span>\"Add to Home Screen\"</span>';
+            banner.style.display = 'block';
+            // Dismiss on tap
+            banner.addEventListener('touchstart', () => {
+                banner.style.display = 'none';
+            }, { passive: true });
+        } else {
+            // Android / other mobile - Fullscreen API supported
+            const canFullscreen = document.documentElement.requestFullscreen
+                || document.documentElement.webkitRequestFullscreen;
+
+            if (!canFullscreen) return;
+
+            banner.innerHTML = '&#x26A1; Tap here to enable <span>Full Screen</span> &#x26A1;';
+            banner.style.display = 'block';
+
+            banner.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen();
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            }, { passive: false });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    banner.style.display = 'none';
+                }
+            });
+        }
+    })();
     </script>
 </body>
 </html>
