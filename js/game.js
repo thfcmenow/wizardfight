@@ -1085,19 +1085,17 @@ async function update() {
         this.spaceKeyDown = true;
         state.gestureType = null; // Consume the hold gesture
 
-        if (state.isSelected) {
-            let proceed = this.gameBoard.selectBox(this.cursor.x, this.cursor.y);
-            this.cursor.visible = true;
-            if (proceed === false) {
-                state.isSelected = false;
-                this.cursor.visible = false;
-                setTimeout(() => {
-                    this.cursor.visible = true;
-                }, 100);
-            }
-        } else {
+        let proceed = this.gameBoard.selectBox(this.cursor.x, this.cursor.y);
+        this.cursor.visible = true;
+        if (proceed === false) {
+            // No piece at cursor - close any open menu
+            state.isSelected = false;
             this.gameBoard.toggleMenu(0, 0, false);
             state.keymonitor = false;
+            this.cursor.visible = false;
+            setTimeout(() => {
+                this.cursor.visible = true;
+            }, 100);
         }
     } else if (cursors.space.isUp && keys.S.isUp) {
         this.spaceKeyDown = false;
